@@ -17,7 +17,7 @@ type Task struct {
 	ProjectID   string    `json:"project_id"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
-	Status      string    `json:"status"` // todo, in_progress, done
+	Status      string    `json:"status"`   // todo, in_progress, done
 	Priority    string    `json:"priority"` // low, medium, high
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`

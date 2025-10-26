@@ -88,14 +88,14 @@ func main() {
 		// Remove the base path
 		path := strings.TrimPrefix(r.URL.Path, "/api/v1/projects/")
 		parts := strings.Split(path, "/")
-		
+
 		if len(parts) == 0 || parts[0] == "" {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
-		
+
 		projectID := parts[0]
-		
+
 		// Check if it's a tasks request
 		if len(parts) > 1 && parts[1] == "tasks" {
 			w.Header().Set("Content-Type", "application/json")
@@ -106,7 +106,7 @@ func main() {
 			json.NewEncoder(w).Encode(tasks)
 			return
 		}
-		
+
 		// Single project request
 		w.Header().Set("Content-Type", "application/json")
 		for _, p := range projects {
@@ -125,6 +125,6 @@ func main() {
 	fmt.Println("  GET /api/v1/projects/:id")
 	fmt.Println("  GET /api/v1/projects/:id/tasks")
 	fmt.Println("\nPress Ctrl+C to stop")
-	
+
 	log.Fatal(http.ListenAndServe(addr, nil))
 }

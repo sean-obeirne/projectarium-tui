@@ -10,12 +10,12 @@ import (
 
 // KanbanBoard represents the kanban board view
 type KanbanBoard struct {
-	project       *api.Project
-	columns       []api.Column
-	selectedCol   int
-	selectedTask  int
-	width         int
-	height        int
+	project      *api.Project
+	columns      []api.Column
+	selectedCol  int
+	selectedTask int
+	width        int
+	height       int
 }
 
 // NewKanbanBoard creates a new kanban board

@@ -23,30 +23,30 @@ const (
 
 // Model is the main Bubble Tea model
 type Model struct {
-	apiClient      *api.Client
-	config         *config.Config
-	viewMode       ViewMode
-	projects       []api.Project
+	apiClient       *api.Client
+	config          *config.Config
+	viewMode        ViewMode
+	projects        []api.Project
 	selectedProject *api.Project
-	tasks          []api.Task
-	projectList    list.Model
-	kanbanBoard    *KanbanBoard
-	cursor         int
-	width          int
-	height         int
-	err            error
-	loading        bool
-	keys           keyMap
+	tasks           []api.Task
+	projectList     list.Model
+	kanbanBoard     *KanbanBoard
+	cursor          int
+	width           int
+	height          int
+	err             error
+	loading         bool
+	keys            keyMap
 }
 
 type keyMap struct {
-	Up     key.Binding
-	Down   key.Binding
-	Left   key.Binding
-	Right  key.Binding
-	Enter  key.Binding
-	Back   key.Binding
-	Quit   key.Binding
+	Up      key.Binding
+	Down    key.Binding
+	Left    key.Binding
+	Right   key.Binding
+	Enter   key.Binding
+	Back    key.Binding
+	Quit    key.Binding
 	Refresh key.Binding
 }
 
@@ -164,7 +164,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewMode = ErrorView
 			return m, nil
 		}
-		
+
 		// Update project list
 		items := make([]list.Item, len(m.projects))
 		for i, p := range m.projects {
@@ -181,7 +181,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewMode = ErrorView
 			return m, nil
 		}
-		
+
 		// Create kanban board
 		m.kanbanBoard = NewKanbanBoard(m.selectedProject, m.tasks)
 		m.kanbanBoard.SetSize(m.width, m.height)
@@ -226,7 +226,7 @@ func (m Model) View() string {
 func (m Model) projectListView() string {
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render
 	help := helpStyle("\n  ↑/k up • ↓/j down • enter select • r refresh • q quit")
-	
+
 	if len(m.projects) == 0 {
 		emptyStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("241")).
@@ -262,7 +262,7 @@ func (m Model) errorView() string {
 		Foreground(lipgloss.Color("241")).
 		MarginTop(1).
 		MarginLeft(2)
-	
+
 	errMsg := errorStyle.Render(fmt.Sprintf("Error: %v", m.err))
 	help := helpStyle.Render("\nPress 'r' to retry, 'q' to quit")
 	return errMsg + help

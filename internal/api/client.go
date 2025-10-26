@@ -27,7 +27,7 @@ func NewClient(baseURL string) *Client {
 // GetProjects retrieves all projects
 func (c *Client) GetProjects() ([]Project, error) {
 	url := fmt.Sprintf("%s/projects", c.BaseURL)
-	
+
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get projects: %w", err)
@@ -50,7 +50,7 @@ func (c *Client) GetProjects() ([]Project, error) {
 // GetProject retrieves a specific project by ID
 func (c *Client) GetProject(id string) (*Project, error) {
 	url := fmt.Sprintf("%s/projects/%s", c.BaseURL, id)
-	
+
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project: %w", err)
@@ -73,7 +73,7 @@ func (c *Client) GetProject(id string) (*Project, error) {
 // GetTasks retrieves all tasks for a project
 func (c *Client) GetTasks(projectID string) ([]Task, error) {
 	url := fmt.Sprintf("%s/projects/%s/tasks", c.BaseURL, projectID)
-	
+
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tasks: %w", err)
