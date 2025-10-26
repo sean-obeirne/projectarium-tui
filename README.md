@@ -37,6 +37,23 @@ Run the application:
 ./projectarium-tui
 ```
 
+### Demo
+
+To try the application with sample data, you can use the included mock server:
+
+1. Start the mock server in one terminal:
+   ```bash
+   cd examples
+   go run mock-server.go
+   ```
+
+2. In another terminal, run the TUI:
+   ```bash
+   ./projectarium-tui
+   ```
+
+The mock server provides sample projects and tasks to demonstrate the full functionality.
+
 ### Keyboard Controls
 
 #### Project List View
@@ -58,6 +75,22 @@ Run the application:
 - projectarium-v2 backend running and accessible
 
 ## Development
+
+### Mock Server
+
+A mock server is included in `examples/mock-server.go` for testing and development. It provides sample data with three projects and multiple tasks in different states.
+
+To run the mock server:
+
+```bash
+cd examples
+go run mock-server.go
+```
+
+The server will start on `http://localhost:8080` and provide the following endpoints:
+- `GET /api/v1/projects` - List all projects
+- `GET /api/v1/projects/:id` - Get a specific project
+- `GET /api/v1/projects/:id/tasks` - Get tasks for a project
 
 ### Project Structure
 
