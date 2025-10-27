@@ -1,30 +1,30 @@
 package api
 
-import "time"
-
 // Project represents a kanban project
+// Matches the backend API model in projectarium-v2/internal/models/project.go
 type Project struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Path        string `json:"path"`
+	File        string `json:"file"`
+	Priority    int    `json:"priority"`
+	Status      string `json:"status"`
+	Language    string `json:"language"`
 }
 
-// Task represents a task in a kanban board
-type Task struct {
-	ID          string    `json:"id"`
-	ProjectID   string    `json:"project_id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Status      string    `json:"status"`   // todo, in_progress, done
-	Priority    string    `json:"priority"` // low, medium, high
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+// Todo represents a task/todo item in a kanban board
+// Matches the backend API model in projectarium-v2/internal/models/todo.go
+type Todo struct {
+	ID          int    `json:"id"`
+	Description string `json:"description"`
+	Priority    int    `json:"priority"`
+	Deleted     bool   `json:"deleted"`
+	ProjectID   *int   `json:"project_id"`
 }
 
-// Column represents a kanban column/status
+// Column represents a kanban column/status for display in the TUI
 type Column struct {
 	Name  string
-	Tasks []Task
+	Todos []Todo
 }

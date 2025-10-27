@@ -63,10 +63,10 @@ go build
 The application connects to the projectarium-v2 API backend. Configure the API endpoint using the `PROJECTARIUM_API_URL` environment variable:
 
 ```bash
-export PROJECTARIUM_API_URL="http://localhost:8080/api/v1"
+export PROJECTARIUM_API_URL="http://localhost:8080/api"
 ```
 
-If not set, it defaults to `http://localhost:8080/api/v1`.
+If not set, it defaults to `http://localhost:8080/api`.
 
 ## Usage
 
@@ -127,9 +127,9 @@ go run mock-server.go
 ```
 
 The server will start on `http://localhost:8080` and provide the following endpoints:
-- `GET /api/v1/projects` - List all projects
-- `GET /api/v1/projects/:id` - Get a specific project
-- `GET /api/v1/projects/:id/tasks` - Get tasks for a project
+- `GET /api/projects` - List all projects
+- `GET /api/projects/:id` - Get a specific project
+- `GET /api/todos` - Get all todos
 
 ### Project Structure
 
@@ -156,7 +156,7 @@ go build
 ### Running
 
 ```bash
-PROJECTARIUM_API_URL="http://localhost:8080/api/v1" ./projectarium-tui
+PROJECTARIUM_API_URL="http://localhost:8080/api" ./projectarium-tui
 ```
 
 ## License

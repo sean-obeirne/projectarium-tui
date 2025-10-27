@@ -25,9 +25,9 @@ You should see:
 ```
 Mock projectarium-v2 API server starting on :8080
 Endpoints:
-  GET /api/v1/projects
-  GET /api/v1/projects/:id
-  GET /api/v1/projects/:id/tasks
+  GET /api/projects
+  GET /api/projects/:id
+  GET /api/todos
 
 Press Ctrl+C to stop
 ```
@@ -104,7 +104,7 @@ To connect to a real projectarium-v2 backend:
 
 1. Set the API URL environment variable:
    ```bash
-   export PROJECTARIUM_API_URL="http://your-backend:port/api/v1"
+   export PROJECTARIUM_API_URL="http://your-backend:port/api"
    ```
 
 2. Run the application:
@@ -127,7 +127,7 @@ source .env
 
 If you see:
 ```
-Error: failed to get projects: Get "http://localhost:8080/api/v1/projects": dial tcp: connect: connection refused
+Error: failed to get projects: Get "http://localhost:8080/api/projects": dial tcp: connect: connection refused
 
 Press 'r' to retry, 'q' to quit
 ```

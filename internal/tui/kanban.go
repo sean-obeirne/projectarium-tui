@@ -13,28 +13,33 @@ type KanbanBoard struct {
 	project      *api.Project
 	columns      []api.Column
 	selectedCol  int
-	selectedTask int
+	selectedTodo int
 	width        int
 	height       int
 }
 
 // NewKanbanBoard creates a new kanban board
-func NewKanbanBoard(project *api.Project, tasks []api.Task) *KanbanBoard {
-	// Organize tasks into columns
+func NewKanbanBoard(project *api.Project, todos []api.Todo) *KanbanBoard {
+	// Organize todos into columns based on priority
+	// Since the backend doesn't have a "status" field on todos,
+	// we'll organize by priority for now
 	columns := []api.Column{
-		{Name: "To Do", Tasks: []api.Task{}},
-		{Name: "In Progress", Tasks: []api.Task{}},
-		{Name: "Done", Tasks: []api.Task{}},
+		{Name: "To Do", Todos: []api.Todo{}},
+		{Name: "In Progress", Todos: []api.Todo{}},
+		{Name: "Done", Todos: []api.Todo{}},
 	}
 
-	for _, task := range tasks {
-		switch task.Status {
-		case "todo", "":
-			columns[0].Tasks = append(columns[0].Tasks, task)
-		case "in_progress":
-			columns[1].Tasks = append(columns[1].Tasks, task)
-		case "done":
-			columns[2].Tasks = append(columns[2].Tasks, task)
+	for _, todo := range todos {
+		if todo.Deleted {
+			continue // Skip deleted todos
+		}
+		switch {
+		case todo.Priority == 0:
+			columns[0].Todos = append(columns[0].Todos, todo)
+		case todo.Priority == 1:
+			columns[1].Todos = append(columns[1].Todos, todo)
+		case todo.Priority >= 2:
+			columns[2].Todos = append(columns[2].Todos, todo)
 		}
 	}
 
@@ -42,7 +47,7 @@ func NewKanbanBoard(project *api.Project, tasks []api.Task) *KanbanBoard {
 		project:      project,
 		columns:      columns,
 		selectedCol:  0,
-		selectedTask: 0,
+		selectedTodo: 0,
 	}
 }
 
@@ -60,20 +65,20 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 		case "left", "h":
 			if b.selectedCol > 0 {
 				b.selectedCol--
-				b.selectedTask = 0
+				b.selectedTodo = 0
 			}
 		case "right", "l":
 			if b.selectedCol < len(b.columns)-1 {
 				b.selectedCol++
-				b.selectedTask = 0
+				b.selectedTodo = 0
 			}
 		case "up", "k":
-			if b.selectedTask > 0 {
-				b.selectedTask--
+			if b.selectedTodo > 0 {
+				b.selectedTodo--
 			}
 		case "down", "j":
-			if b.selectedTask < len(b.columns[b.selectedCol].Tasks)-1 {
-				b.selectedTask++
+			if b.selectedTodo < len(b.columns[b.selectedCol].Todos)-1 {
+				b.selectedTodo++
 			}
 		}
 	}
@@ -134,46 +139,46 @@ func (b *KanbanBoard) View() string {
 		if i == b.selectedCol {
 			headerStyle = selectedColumnHeaderStyle
 		}
-		header := headerStyle.Render(fmt.Sprintf("%s (%d)", col.Name, len(col.Tasks)))
+		header := headerStyle.Render(fmt.Sprintf("%s (%d)", col.Name, len(col.Todos)))
 
-		// Tasks
-		taskViews := []string{}
-		displayedTasks := 0
-		maxTasks := (maxHeight - 2) / 4 // Approximate tasks that fit
+		// Todos
+		todoViews := []string{}
+		displayedTodos := 0
+		maxTodos := (maxHeight - 2) / 4 // Approximate todos that fit
 
-		for j, task := range col.Tasks {
-			if displayedTasks >= maxTasks {
-				taskViews = append(taskViews, lipgloss.NewStyle().
+		for j, todo := range col.Todos {
+			if displayedTodos >= maxTodos {
+				todoViews = append(todoViews, lipgloss.NewStyle().
 					Foreground(lipgloss.Color("241")).
-					Render(fmt.Sprintf("  ... %d more", len(col.Tasks)-displayedTasks)))
+					Render(fmt.Sprintf("  ... %d more", len(col.Todos)-displayedTodos)))
 				break
 			}
 
 			style := taskStyle
-			if i == b.selectedCol && j == b.selectedTask {
+			if i == b.selectedCol && j == b.selectedTodo {
 				style = selectedTaskStyle
 			}
 
-			// Truncate task title if too long
-			title := task.Title
-			maxTitleLen := colWidth - 4
-			if len(title) > maxTitleLen {
-				title = title[:maxTitleLen-3] + "..."
+			// Truncate todo description if too long
+			description := todo.Description
+			maxDescLen := colWidth - 4
+			if len(description) > maxDescLen {
+				description = description[:maxDescLen-3] + "..."
 			}
 
-			taskView := style.Width(colWidth - 2).Render(title)
-			taskViews = append(taskViews, taskView)
-			displayedTasks++
+			todoView := style.Width(colWidth - 2).Render(description)
+			todoViews = append(todoViews, todoView)
+			displayedTodos++
 		}
 
-		if len(taskViews) == 0 {
-			taskViews = append(taskViews, lipgloss.NewStyle().
+		if len(todoViews) == 0 {
+			todoViews = append(todoViews, lipgloss.NewStyle().
 				Foreground(lipgloss.Color("241")).
 				Padding(1).
-				Render("No tasks"))
+				Render("No todos"))
 		}
 
-		columnContent := lipgloss.JoinVertical(lipgloss.Left, taskViews...)
+		columnContent := lipgloss.JoinVertical(lipgloss.Left, todoViews...)
 		columnViews[i] = lipgloss.JoinVertical(
 			lipgloss.Left,
 			header,

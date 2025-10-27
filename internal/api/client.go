@@ -48,8 +48,8 @@ func (c *Client) GetProjects() ([]Project, error) {
 }
 
 // GetProject retrieves a specific project by ID
-func (c *Client) GetProject(id string) (*Project, error) {
-	url := fmt.Sprintf("%s/projects/%s", c.BaseURL, id)
+func (c *Client) GetProject(id int) (*Project, error) {
+	url := fmt.Sprintf("%s/projects/%d", c.BaseURL, id)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
@@ -70,13 +70,13 @@ func (c *Client) GetProject(id string) (*Project, error) {
 	return &project, nil
 }
 
-// GetTasks retrieves all tasks for a project
-func (c *Client) GetTasks(projectID string) ([]Task, error) {
-	url := fmt.Sprintf("%s/projects/%s/tasks", c.BaseURL, projectID)
+// GetTodos retrieves all todos, optionally filtered by project
+func (c *Client) GetTodos() ([]Todo, error) {
+	url := fmt.Sprintf("%s/todos", c.BaseURL)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get tasks: %w", err)
+		return nil, fmt.Errorf("failed to get todos: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -85,10 +85,33 @@ func (c *Client) GetTasks(projectID string) ([]Task, error) {
 		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	var tasks []Task
-	if err := json.NewDecoder(resp.Body).Decode(&tasks); err != nil {
-		return nil, fmt.Errorf("failed to decode tasks: %w", err)
+	var todos []Todo
+	if err := json.NewDecoder(resp.Body).Decode(&todos); err != nil {
+		return nil, fmt.Errorf("failed to decode todos: %w", err)
 	}
 
-	return tasks, nil
+	return todos, nil
+}
+
+// GetTodo retrieves a specific todo by ID
+func (c *Client) GetTodo(id int) (*Todo, error) {
+	url := fmt.Sprintf("%s/api/todos/%d", c.BaseURL, id)
+
+	resp, err := c.HTTPClient.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get todo: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var todo Todo
+	if err := json.NewDecoder(resp.Body).Decode(&todo); err != nil {
+		return nil, fmt.Errorf("failed to decode todo: %w", err)
+	}
+
+	return &todo, nil
 }

@@ -28,7 +28,7 @@ type Model struct {
 	viewMode        ViewMode
 	projects        []api.Project
 	selectedProject *api.Project
-	tasks           []api.Task
+	todos           []api.Todo
 	projectList     list.Model
 	kanbanBoard     *KanbanBoard
 	cursor          int
@@ -175,7 +175,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tasksLoadedMsg:
 		m.loading = false
-		m.tasks = msg.tasks
+		m.todos = msg.tasks
 		m.err = msg.err
 		if m.err != nil {
 			m.viewMode = ErrorView
@@ -183,7 +183,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Create kanban board
-		m.kanbanBoard = NewKanbanBoard(m.selectedProject, m.tasks)
+		m.kanbanBoard = NewKanbanBoard(m.selectedProject, m.todos)
 		m.kanbanBoard.SetSize(m.width, m.height)
 		m.viewMode = KanbanBoardView
 		return m, nil
@@ -276,7 +276,7 @@ type projectsLoadedMsg struct {
 }
 
 type tasksLoadedMsg struct {
-	tasks []api.Task
+	tasks []api.Todo
 	err   error
 }
 
@@ -287,10 +287,19 @@ func (m Model) loadProjects() tea.Msg {
 	return projectsLoadedMsg{projects: projects, err: err}
 }
 
-func (m Model) loadTasks(projectID string) tea.Cmd {
+func (m Model) loadTasks(projectID int) tea.Cmd {
 	return func() tea.Msg {
-		tasks, err := m.apiClient.GetTasks(projectID)
-		return tasksLoadedMsg{tasks: tasks, err: err}
+		todos, err := m.apiClient.GetTodos()
+		// Filter todos by project ID
+		var filteredTodos []api.Todo
+		if err == nil {
+			for _, todo := range todos {
+				if todo.ProjectID != nil && *todo.ProjectID == projectID {
+					filteredTodos = append(filteredTodos, todo)
+				}
+			}
+		}
+		return tasksLoadedMsg{tasks: filteredTodos, err: err}
 	}
 }
 

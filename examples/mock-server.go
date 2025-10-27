@@ -79,14 +79,14 @@ func main() {
 	}
 
 	// API handlers
-	http.HandleFunc("/api/v1/projects", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/projects", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(projects)
 	})
 
-	http.HandleFunc("/api/v1/projects/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/projects/", func(w http.ResponseWriter, r *http.Request) {
 		// Remove the base path
-		path := strings.TrimPrefix(r.URL.Path, "/api/v1/projects/")
+		path := strings.TrimPrefix(r.URL.Path, "/api/projects/")
 		parts := strings.Split(path, "/")
 
 		if len(parts) == 0 || parts[0] == "" {
@@ -121,9 +121,9 @@ func main() {
 	addr := ":8080"
 	fmt.Printf("Mock projectarium-v2 API server starting on %s\n", addr)
 	fmt.Println("Endpoints:")
-	fmt.Println("  GET /api/v1/projects")
-	fmt.Println("  GET /api/v1/projects/:id")
-	fmt.Println("  GET /api/v1/projects/:id/tasks")
+	fmt.Println("  GET /api/projects")
+	fmt.Println("  GET /api/projects/:id")
+	fmt.Println("  GET /api/projects/:id/tasks")
 	fmt.Println("\nPress Ctrl+C to stop")
 
 	log.Fatal(http.ListenAndServe(addr, nil))

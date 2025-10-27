@@ -14,7 +14,7 @@ func Load() *Config {
 	apiURL := os.Getenv("PROJECTARIUM_API_URL")
 	if apiURL == "" {
 		// Default to localhost
-		apiURL = "http://localhost:8080/api/v1"
+		apiURL = "http://localhost:8080/api"
 	}
 
 	return &Config{
