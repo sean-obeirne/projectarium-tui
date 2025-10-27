@@ -31,7 +31,6 @@ type Model struct {
 	todos           []api.Todo
 	projectList     list.Model
 	kanbanBoard     *KanbanBoard
-	cursor          int
 	width           int
 	height          int
 	err             error

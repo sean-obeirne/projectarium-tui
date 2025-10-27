@@ -103,7 +103,7 @@ func (b *KanbanBoard) View() string {
 		Foreground(lipgloss.Color("15")).
 		Background(lipgloss.Color("63"))
 
-	selectedColumnHeaderStyle := columnHeaderStyle.Copy().
+	selectedColumnHeaderStyle := columnHeaderStyle.
 		Background(lipgloss.Color("99"))
 
 	taskStyle := lipgloss.NewStyle().
@@ -112,7 +112,7 @@ func (b *KanbanBoard) View() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("240"))
 
-	selectedTaskStyle := taskStyle.Copy().
+	selectedTaskStyle := taskStyle.
 		BorderForeground(lipgloss.Color("63")).
 		Foreground(lipgloss.Color("63"))
 
