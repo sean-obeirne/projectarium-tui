@@ -8,6 +8,10 @@
 *.so
 *.dylib
 
+# Built binary
+projectarium-tui
+mock-server
+
 # Test binary, built with `go test -c`
 *.test
 
