@@ -118,7 +118,7 @@ func main() {
 		http.Error(w, "Project not found", http.StatusNotFound)
 	})
 
-	addr := ":8080"
+	addr := ":8888"
 	fmt.Printf("Mock projectarium-v2 API server starting on %s\n", addr)
 	fmt.Println("Endpoints:")
 	fmt.Println("  GET /api/projects")

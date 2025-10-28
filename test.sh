@@ -42,7 +42,7 @@ sleep 2
 echo "4. Testing API endpoints..."
 
 # Test projects endpoint
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/projects)
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8888/api/projects)
 if [ "$HTTP_CODE" != "200" ]; then
     echo "✗ Projects endpoint failed (HTTP $HTTP_CODE)"
     kill $SERVER_PID
@@ -51,7 +51,7 @@ fi
 echo "✓ Projects endpoint working"
 
 # Test single project endpoint
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/projects/1)
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8888/api/projects/1)
 if [ "$HTTP_CODE" != "200" ]; then
     echo "✗ Single project endpoint failed (HTTP $HTTP_CODE)"
     kill $SERVER_PID
@@ -60,7 +60,7 @@ fi
 echo "✓ Single project endpoint working"
 
 # Test tasks endpoint
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/todos)
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8888/api/todos)
 if [ "$HTTP_CODE" != "200" ]; then
     echo "✗ Todos endpoint failed (HTTP $HTTP_CODE)"
     kill $SERVER_PID
@@ -71,7 +71,7 @@ echo
 
 # 6. Verify data structure
 echo "5. Verifying data structure..."
-PROJECTS_COUNT=$(curl -s http://localhost:8080/api/projects | jq 'length')
+PROJECTS_COUNT=$(curl -s http://localhost:8888/api/projects | jq 'length')
 if [ "$PROJECTS_COUNT" != "3" ]; then
     echo "✗ Expected 3 projects, got $PROJECTS_COUNT"
     kill $SERVER_PID
@@ -79,7 +79,7 @@ if [ "$PROJECTS_COUNT" != "3" ]; then
 fi
 echo "✓ Correct number of projects ($PROJECTS_COUNT)"
 
-TODOS_COUNT=$(curl -s http://localhost:8080/api/todos | jq 'length')
+TODOS_COUNT=$(curl -s http://localhost:8888/api/todos | jq 'length')
 if [ "$TODOS_COUNT" -lt "0" ]; then
     echo "✗ Failed to fetch todos"
     kill $SERVER_PID

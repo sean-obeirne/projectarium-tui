@@ -23,7 +23,7 @@ go run mock-server.go
 
 You should see:
 ```
-Mock projectarium-v2 API server starting on :8080
+Mock projectarium-v2 API server starting on :8888
 Endpoints:
   GET /api/projects
   GET /api/projects/:id
@@ -127,7 +127,7 @@ source .env
 
 If you see:
 ```
-Error: failed to get projects: Get "http://localhost:8080/api/projects": dial tcp: connect: connection refused
+Error: failed to get projects: Get "http://localhost:8888/api/projects": dial tcp: connect: connection refused
 
 Press 'r' to retry, 'q' to quit
 ```
