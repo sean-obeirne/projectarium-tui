@@ -1,6 +1,6 @@
-# Getting Started with projectarium-tui
+# Getting Started with pj-tui
 
-This guide will help you get started with the projectarium-tui Terminal User Interface.
+This guide will help you get started with the pj-tui Terminal User Interface.
 
 ## Quick Start
 
@@ -37,7 +37,7 @@ Press Ctrl+C to stop
 In another terminal:
 
 ```bash
-./projectarium-tui
+./pj-tui
 ```
 
 ## Using the TUI
@@ -109,7 +109,7 @@ To connect to a real projectarium-v2 backend:
 
 2. Run the application:
    ```bash
-   ./projectarium-tui
+   ./pj-tui
    ```
 
 You can also create a `.env` file (see `.env.example`) and source it before running:
@@ -118,7 +118,7 @@ You can also create a `.env` file (see `.env.example`) and source it before runn
 cp .env.example .env
 # Edit .env with your settings
 source .env
-./projectarium-tui
+./pj-tui
 ```
 
 ## Troubleshooting

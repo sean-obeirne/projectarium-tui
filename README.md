@@ -1,4 +1,4 @@
-# projectarium-tui
+# pj-tui
 
 A Terminal User Interface (TUI) for the projectarium-v2 backend, built with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
@@ -73,7 +73,7 @@ If not set, it defaults to `http://localhost:8888/api`.
 Run the application:
 
 ```bash
-./projectarium-tui
+./pj-tui
 ```
 
 ### Demo
@@ -88,7 +88,7 @@ To try the application with sample data, you can use the included mock server:
 
 2. In another terminal, run the TUI:
    ```bash
-   ./projectarium-tui
+   ./pj-tui
    ```
 
 The mock server provides sample projects and tasks to demonstrate the full functionality.
@@ -156,7 +156,7 @@ go build
 ### Running
 
 ```bash
-PROJECTARIUM_API_URL="http://localhost:8888/api" ./projectarium-tui
+PROJECTARIUM_API_URL="http://localhost:8888/api" ./pj-tui
 ```
 
 ## License

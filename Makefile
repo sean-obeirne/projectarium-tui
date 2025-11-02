@@ -1,4 +1,4 @@
-.PHONY: help build run test clean fmt vet lint install-hooks install-tools
+.PHONY: help build run test clean fmt vet lint install-hooks install-tools install uninstall
 
 # Default target
 help:
@@ -11,13 +11,15 @@ help:
 	@echo "  make lint           - Run golangci-lint"
 	@echo "  make check          - Run all checks (fmt, vet, lint, test)"
 	@echo "  make clean          - Clean build artifacts"
+	@echo "  make install        - Install binary to /usr/local/bin"
+	@echo "  make uninstall      - Remove binary from /usr/local/bin"
 	@echo "  make install-hooks  - Install git pre-commit hooks"
 	@echo "  make install-tools  - Install development tools"
 
 # Build the application
 build:
 	@echo "🏗️  Building..."
-	go build -o bin/projectarium-tui
+	go build -o bin/pj-tui
 
 # Run the application
 run:
@@ -72,6 +74,19 @@ clean:
 	rm -rf bin/
 	rm -rf tmp/
 	rm -f build-errors.log
+
+# Install binary to system
+install: build
+	@echo "📦 Installing pj-tui to /usr/local/bin..."
+	@sudo cp bin/pj-tui /usr/local/bin/
+	@sudo chmod +x /usr/local/bin/pj-tui
+	@echo "✅ Installed! Run 'pj-tui' from anywhere."
+
+# Uninstall binary from system
+uninstall:
+	@echo "🗑️  Uninstalling pj-tui..."
+	@sudo rm -f /usr/local/bin/pj-tui
+	@echo "✅ Uninstalled!"
 
 # Install git hooks
 install-hooks:

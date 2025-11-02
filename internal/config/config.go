@@ -12,7 +12,7 @@ type Config struct {
 // Load loads configuration from environment variables
 func Load() *Config {
 	// Try config file first
-	configFile := os.Getenv("HOME") + "/.config/projectarium-tui.env"
+	configFile := os.Getenv("HOME") + "/.config/pj-tui.env"
 	if _, err := os.Stat(configFile); err == nil {
 		// Read config file
 		if data, err := os.ReadFile(configFile); err == nil {
