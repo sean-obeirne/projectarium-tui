@@ -10,12 +10,14 @@ import (
 
 // KanbanBoard represents the kanban board view
 type KanbanBoard struct {
-	columns         []ProjectColumn
-	selectedCol     int
-	selectedProject int
-	scrollOffset    []int // scroll offset for each column
-	width           int
-	height          int
+	columns             []ProjectColumn
+	selectedCol         int
+	selectedProject     int
+	desiredProject      int
+	scrollOffset        []int // scroll offset for each column
+	desiredScrollOffset []int // desired scroll offset for each column
+	width               int
+	height              int
 }
 
 // ProjectColumn represents a column containing projects
@@ -48,10 +50,12 @@ func NewKanbanBoard(projects []api.Project) *KanbanBoard {
 	}
 
 	kb := &KanbanBoard{
-		columns:         columns,
-		selectedCol:     0,
-		selectedProject: 0,
-		scrollOffset:    make([]int, len(columns)),
+		columns:             columns,
+		selectedCol:         0,
+		selectedProject:     0,
+		desiredProject:      0,
+		scrollOffset:        make([]int, len(columns)),
+		desiredScrollOffset: make([]int, len(columns)),
 	}
 
 	// Find first non-empty column to start with
@@ -91,8 +95,26 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 			for i := b.selectedCol - 1; i >= 0; i-- {
 				if len(b.columns[i].Projects) > 0 {
 					b.selectedCol = i
-					b.selectedProject = 0
-					b.scrollOffset[i] = 0 // Reset scroll when switching columns
+					// Try to maintain position using desiredProject, but clamp to available range
+					b.selectedProject = min(b.desiredProject, len(b.columns[i].Projects)-1)
+					// Restore the desired scroll offset for this column
+					b.scrollOffset[i] = b.desiredScrollOffset[i]
+
+					// Ensure selected project is visible - scroll up if needed
+					if b.selectedProject < b.scrollOffset[i] {
+						b.scrollOffset[i] = b.selectedProject
+					}
+
+					// Also check if we need to scroll down to keep it visible
+					maxHeight := b.height - 8
+					maxProjects := (maxHeight - 2) / 5
+					visibleEnd := b.scrollOffset[i] + maxProjects - 1
+					if b.selectedProject > visibleEnd {
+						b.scrollOffset[i] = b.selectedProject - maxProjects + 1
+						if b.scrollOffset[i] < 0 {
+							b.scrollOffset[i] = 0
+						}
+					}
 					break
 				}
 			}
@@ -101,23 +123,47 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 			for i := b.selectedCol + 1; i < len(b.columns); i++ {
 				if len(b.columns[i].Projects) > 0 {
 					b.selectedCol = i
-					b.selectedProject = 0
-					b.scrollOffset[i] = 0 // Reset scroll when switching columns
+					// Try to maintain position using desiredProject, but clamp to available range
+					b.selectedProject = min(b.desiredProject, len(b.columns[i].Projects)-1)
+					// Restore the desired scroll offset for this column
+					b.scrollOffset[i] = b.desiredScrollOffset[i]
+
+					// Ensure selected project is visible - scroll up if needed
+					if b.selectedProject < b.scrollOffset[i] {
+						b.scrollOffset[i] = b.selectedProject
+					}
+
+					// Also check if we need to scroll down to keep it visible
+					maxHeight := b.height - 8
+					maxProjects := (maxHeight - 2) / 5
+					visibleEnd := b.scrollOffset[i] + maxProjects - 1
+					if b.selectedProject > visibleEnd {
+						b.scrollOffset[i] = b.selectedProject - maxProjects + 1
+						if b.scrollOffset[i] < 0 {
+							b.scrollOffset[i] = 0
+						}
+					}
 					break
 				}
 			}
 		case "up", "k":
 			if b.selectedProject > 0 {
 				b.selectedProject--
+				// Update desiredProject to track the maximum index reached
+				b.desiredProject = b.selectedProject
 				// Scroll up if we've scrolled above the visible area
 				if b.selectedProject < b.scrollOffset[b.selectedCol] {
 					b.scrollOffset[b.selectedCol] = b.selectedProject
 				}
+				// Save the current scroll position as desired
+				b.desiredScrollOffset[b.selectedCol] = b.scrollOffset[b.selectedCol]
 			}
 		case "down", "j":
 			currentCol := b.columns[b.selectedCol]
 			if b.selectedProject < len(currentCol.Projects)-1 {
 				b.selectedProject++
+				// Update desiredProject to track the maximum index reached
+				b.desiredProject = b.selectedProject
 
 				// Calculate how many projects can fit in the visible area
 				maxHeight := b.height - 8          // Reserve space for title and help
@@ -134,6 +180,8 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 						b.scrollOffset[b.selectedCol] = 0
 					}
 				}
+				// Save the current scroll position as desired
+				b.desiredScrollOffset[b.selectedCol] = b.scrollOffset[b.selectedCol]
 			}
 		}
 	}
