@@ -101,13 +101,17 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 					b.scrollOffset[i] = b.desiredScrollOffset[i]
 
 					// Ensure selected project is visible - scroll up if needed
-					if b.selectedProject < b.scrollOffset[i] {
-						b.scrollOffset[i] = b.selectedProject
-					}
+					b.scrollOffset[i] = min(b.selectedProject, b.scrollOffset[i])
 
 					// Also check if we need to scroll down to keep it visible
-					maxHeight := b.height - 8
-					maxProjects := (maxHeight - 2) / 5
+					maxHeight := b.height - 10
+					if maxHeight < 5 {
+						maxHeight = 5
+					}
+					maxProjects := maxHeight / 7
+					if maxProjects < 1 {
+						maxProjects = 1
+					}
 					visibleEnd := b.scrollOffset[i] + maxProjects - 1
 					if b.selectedProject > visibleEnd {
 						b.scrollOffset[i] = b.selectedProject - maxProjects + 1
@@ -129,19 +133,21 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 					b.scrollOffset[i] = b.desiredScrollOffset[i]
 
 					// Ensure selected project is visible - scroll up if needed
-					if b.selectedProject < b.scrollOffset[i] {
-						b.scrollOffset[i] = b.selectedProject
-					}
+					b.scrollOffset[i] = min(b.selectedProject, b.scrollOffset[i])
 
 					// Also check if we need to scroll down to keep it visible
-					maxHeight := b.height - 8
-					maxProjects := (maxHeight - 2) / 5
+					maxHeight := b.height - 10
+					if maxHeight < 5 {
+						maxHeight = 5
+					}
+					maxProjects := maxHeight / 7
+					if maxProjects < 1 {
+						maxProjects = 1
+					}
 					visibleEnd := b.scrollOffset[i] + maxProjects - 1
 					if b.selectedProject > visibleEnd {
 						b.scrollOffset[i] = b.selectedProject - maxProjects + 1
-						if b.scrollOffset[i] < 0 {
-							b.scrollOffset[i] = 0
-						}
+						b.scrollOffset[i] = min(b.scrollOffset[i], 0)
 					}
 					break
 				}
@@ -152,9 +158,7 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 				// Update desiredProject to track the maximum index reached
 				b.desiredProject = b.selectedProject
 				// Scroll up if we've scrolled above the visible area
-				if b.selectedProject < b.scrollOffset[b.selectedCol] {
-					b.scrollOffset[b.selectedCol] = b.selectedProject
-				}
+				b.scrollOffset[b.selectedCol] = min(b.selectedProject, b.scrollOffset[b.selectedCol])
 				// Save the current scroll position as desired
 				b.desiredScrollOffset[b.selectedCol] = b.scrollOffset[b.selectedCol]
 			}
@@ -166,8 +170,14 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 				b.desiredProject = b.selectedProject
 
 				// Calculate how many projects can fit in the visible area
-				maxHeight := b.height - 8          // Reserve space for title and help
-				maxProjects := (maxHeight - 2) / 5 // Approximate projects that fit
+				maxHeight := b.height - 10 // Reserve space for title and help
+				if maxHeight < 5 {
+					maxHeight = 5
+				}
+				maxProjects := maxHeight / 7 // Each project card is ~7 lines
+				if maxProjects < 1 {
+					maxProjects = 1
+				}
 
 				// Check if we need to scroll down
 				visibleStart := b.scrollOffset[b.selectedCol]
@@ -250,7 +260,12 @@ func (b *KanbanBoard) View() string {
 
 	// Build columns
 	columnViews := make([]string, len(b.columns))
-	maxHeight := b.height - 8 // Reserve space for title and help
+	// Reserve space for: empty line (1) + title (1) + title margin bottom (1) + empty line (1) + help top margin (1) + help (1) = 6 lines
+	// Also account for column header (1) + empty line after header (1) + column borders (2) = 4 more lines
+	maxHeight := b.height - 10 // Reserve space for UI chrome
+	if maxHeight < 5 {
+		maxHeight = 5 // Minimum height to show at least one project
+	}
 
 	for i, col := range b.columns {
 		// Column border style
@@ -266,7 +281,11 @@ func (b *KanbanBoard) View() string {
 		// Projects
 		projectViews := []string{}
 		displayedProjects := 0
-		maxProjects := (maxHeight - 2) / 5 // Approximate projects that fit
+		// Each project card is approximately 7 lines: border(2) + padding(2) + content(2) + margin(1)
+		maxProjects := maxHeight / 7
+		if maxProjects < 1 {
+			maxProjects = 1 // Always show at least one project
+		}
 
 		// Calculate scroll range for this column
 		scrollStart := b.scrollOffset[i]
@@ -282,13 +301,11 @@ func (b *KanbanBoard) View() string {
 			var borderColor lipgloss.Color
 			switch project.Priority {
 			case 0:
-				borderColor = highPriorityBorder
+				borderColor = lowPriorityBorder // Gray
 			case 1:
-				borderColor = mediumPriorityBorder
-			case 2:
-				borderColor = lowPriorityBorder
-			default:
-				borderColor = lowPriorityBorder
+				borderColor = mediumPriorityBorder // Yellow/Orange
+			default: // 2 or above
+				borderColor = highPriorityBorder // Red
 			}
 
 			style := projectCardStyle.BorderForeground(borderColor)
