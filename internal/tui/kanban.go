@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/charmbracelet/lipgloss"
 	"github.com/sean-obeirne/projectarium-tui/internal/api"
 )
 
@@ -190,4 +191,75 @@ func (b *KanbanBoard) getColumnIndexForStatus(status string) int {
 	default:
 		return 0
 	}
+}
+
+// RenderProjectCard renders a single project card
+func (b *KanbanBoard) RenderProjectCard(project *api.Project, width int) string {
+	if project == nil {
+		return ""
+	}
+
+	// Priority-based border colors
+	lowPriorityBorder := lipgloss.Color("240")        // Gray
+	mediumLowPriorityBorder := lipgloss.Color("70")   // Green
+	mediumHighPriorityBorder := lipgloss.Color("214") // Yellow/Orange
+	highPriorityBorder := lipgloss.Color("196")       // Red
+
+	var borderColor lipgloss.Color
+	switch project.Priority {
+	case 0:
+		borderColor = lowPriorityBorder
+	case 1:
+		borderColor = mediumLowPriorityBorder
+	case 2:
+		borderColor = mediumHighPriorityBorder
+	default: // 3 or above
+		borderColor = highPriorityBorder
+	}
+
+	projectCardStyle := lipgloss.NewStyle().
+		Padding(1, 2).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(borderColor)
+
+	// Build project card content
+	name := project.Name
+	maxNameLen := width - 6
+	if len(name) > maxNameLen {
+		name = name[:maxNameLen-3] + "..."
+	}
+
+	description := project.Description
+	maxDescLen := width - 6
+	if len(description) > maxDescLen {
+		description = description[:maxDescLen-3] + "..."
+	}
+
+	// Language badge
+	languageBadge := ""
+	if project.Language != "" {
+		languageBadge = project.Language
+	}
+
+	// Status badge
+	statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	statusText := statusStyle.Render("Status: " + project.Status)
+
+	// Create header with name (left) and language (right)
+	headerWidth := width - 6
+	nameStyle := lipgloss.NewStyle().Align(lipgloss.Left)
+	langStyle := lipgloss.NewStyle().Align(lipgloss.Right).Foreground(lipgloss.Color("241"))
+
+	header := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		nameStyle.Width(headerWidth-len(languageBadge)).Render(name),
+		langStyle.Width(len(languageBadge)).Render(languageBadge),
+	)
+
+	// Description (centered)
+	descStyle := lipgloss.NewStyle().Align(lipgloss.Center).Width(headerWidth)
+	descContent := descStyle.Render(description)
+
+	cardContent := lipgloss.JoinVertical(lipgloss.Left, header, descContent, "", statusText)
+	return projectCardStyle.Width(width - 2).Render(cardContent)
 }

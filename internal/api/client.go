@@ -94,6 +94,29 @@ func (c *Client) GetTodos() ([]Todo, error) {
 	return todos, nil
 }
 
+// GetTodosByProject retrieves todos for a specific project
+func (c *Client) GetTodosByProject(projectID int) ([]Todo, error) {
+	url := fmt.Sprintf("%s/todos?project_id=%d", c.BaseURL, projectID)
+
+	resp, err := c.HTTPClient.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get todos: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var todos []Todo
+	if err := json.NewDecoder(resp.Body).Decode(&todos); err != nil {
+		return nil, fmt.Errorf("failed to decode todos: %w", err)
+	}
+
+	return todos, nil
+}
+
 // GetTodo retrieves a specific todo by ID
 func (c *Client) GetTodo(id int) (*Todo, error) {
 	url := fmt.Sprintf("%s/api/todos/%d", c.BaseURL, id)

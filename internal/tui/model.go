@@ -21,16 +21,19 @@ const (
 
 // Model is the main Bubble Tea model
 type Model struct {
-	apiClient   *api.Client
-	config      *config.Config
-	viewMode    ViewMode
-	projects    []api.Project
-	kanbanBoard *KanbanBoard
-	width       int
-	height      int
-	err         error
-	loading     bool
-	keys        keyMap
+	apiClient      *api.Client
+	config         *config.Config
+	viewMode       ViewMode
+	projects       []api.Project
+	kanbanBoard    *KanbanBoard
+	todoList       *TodoList
+	showTodoList   bool // Whether to show todo list overlay
+	currentProject *api.Project
+	width          int
+	height         int
+	err            error
+	loading        bool
+	keys           keyMap
 }
 
 type keyMap struct {
@@ -104,12 +107,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
+			// If todo list is showing, close it instead of quitting
+			if m.showTodoList {
+				m.showTodoList = false
+				m.currentProject = nil
+				m.todoList = nil
+				return m, nil
+			}
 			return m, tea.Quit
 		case key.Matches(msg, m.keys.Refresh):
 			if m.viewMode == KanbanBoardView {
 				m.loading = true
 				m.viewMode = LoadingView
 				return m, m.loadProjects
+			}
+		case key.Matches(msg, m.keys.Enter):
+			// Toggle todo list for selected project
+			if m.viewMode == KanbanBoardView && m.kanbanBoard != nil {
+				if m.showTodoList {
+					// Close todo list if already showing
+					m.showTodoList = false
+					m.currentProject = nil
+					m.todoList = nil
+					return m, nil
+				} else {
+					// Open todo list for selected project
+					if project := m.kanbanBoard.GetSelectedProject(); project != nil {
+						m.currentProject = project
+						return m, m.loadTodos
+					}
+				}
 			}
 		}
 
@@ -118,6 +145,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		if m.kanbanBoard != nil {
 			m.kanbanBoard.SetSize(msg.Width, msg.Height)
+		}
+		if m.todoList != nil {
+			m.todoList.SetSize(msg.Width, msg.Height)
 		}
 
 	case projectsLoadedMsg:
@@ -133,6 +163,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.kanbanBoard = NewKanbanBoard(m.projects)
 		m.kanbanBoard.SetSize(m.width, m.height)
 		m.viewMode = KanbanBoardView
+		return m, nil
+
+	case todosLoadedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+
+		projectName := "Unknown Project"
+		if m.currentProject != nil {
+			projectName = m.currentProject.Name
+		}
+
+		m.todoList = NewTodoList(msg.todos, projectName)
+		m.todoList.SetSize(m.width, m.height)
+		m.showTodoList = true
 		return m, nil
 
 	case progressProjectMsg:
@@ -170,10 +217,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Update the kanban board view
+	// Update the appropriate view
 	var cmd tea.Cmd
 	if m.viewMode == KanbanBoardView && m.kanbanBoard != nil {
-		*m.kanbanBoard, cmd = m.kanbanBoard.Update(msg)
+		// Only handle kanban updates if todo list is not showing
+		if !m.showTodoList {
+			*m.kanbanBoard, cmd = m.kanbanBoard.Update(msg)
+			return m, cmd
+		}
+	}
+
+	// If todo list is showing, let it handle updates
+	if m.showTodoList && m.todoList != nil {
+		*m.todoList, cmd = m.todoList.Update(msg)
 		return m, cmd
 	}
 
@@ -188,7 +244,52 @@ func (m Model) View() string {
 
 	switch m.viewMode {
 	case KanbanBoardView:
-		return m.kanbanBoardView()
+		board := m.kanbanBoardView()
+		// Overlay todo list if showing
+		if m.showTodoList && m.todoList != nil && m.currentProject != nil {
+			// Calculate dimensions
+			projectCardWidth := 40
+			todoListWidth := int(float64(m.width) * 0.5)
+			if todoListWidth < 50 {
+				todoListWidth = 50
+			}
+
+			modalHeight := int(float64(m.height) * 0.7)
+			if modalHeight < 20 {
+				modalHeight = 20
+			}
+
+			// Render the project card
+			projectCard := m.kanbanBoard.RenderProjectCard(m.currentProject, projectCardWidth)
+
+			// Style the todo list
+			todoStyle := lipgloss.NewStyle().
+				Width(todoListWidth).
+				Height(modalHeight).
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("63")).
+				Padding(1, 2)
+
+			todoView := todoStyle.Render(m.todoList.View())
+
+			// Join project card and todo list horizontally
+			combined := lipgloss.JoinHorizontal(
+				lipgloss.Top,
+				projectCard,
+				"  ", // spacing
+				todoView,
+			)
+
+			// Center the combined view
+			return lipgloss.Place(
+				m.width,
+				m.height,
+				lipgloss.Center,
+				lipgloss.Center,
+				combined,
+			)
+		}
+		return board
 	case ErrorView:
 		return m.errorView()
 	default:
@@ -233,6 +334,11 @@ type projectsLoadedMsg struct {
 	err      error
 }
 
+type todosLoadedMsg struct {
+	todos []api.Todo
+	err   error
+}
+
 type progressProjectMsg struct {
 	projectID int
 	status    string
@@ -263,6 +369,14 @@ type projectPriorityUpdatedMsg struct {
 func (m Model) loadProjects() tea.Msg {
 	projects, err := m.apiClient.GetProjects()
 	return projectsLoadedMsg{projects: projects, err: err}
+}
+
+func (m Model) loadTodos() tea.Msg {
+	if m.currentProject == nil {
+		return todosLoadedMsg{todos: []api.Todo{}, err: nil}
+	}
+	todos, err := m.apiClient.GetTodosByProject(m.currentProject.ID)
+	return todosLoadedMsg{todos: todos, err: err}
 }
 
 func (m Model) updateProjectStatus(projectID int, status string) tea.Cmd {
