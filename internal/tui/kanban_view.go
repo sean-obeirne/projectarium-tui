@@ -37,16 +37,16 @@ func (b *KanbanBoard) View() string {
 	// Priority 1: Medium-Low (Green)
 	// Priority 2: Medium-High (Yellow/Orange)
 	// Priority 3: High (Red)
-	lowPriorityBorder := lipgloss.Color("240")      // Gray
-	mediumLowPriorityBorder := lipgloss.Color("70") // Green
+	lowPriorityBorder := lipgloss.Color("240")        // Gray
+	mediumLowPriorityBorder := lipgloss.Color("70")   // Green
 	mediumHighPriorityBorder := lipgloss.Color("214") // Yellow/Orange
-	highPriorityBorder := lipgloss.Color("196")     // Red
+	highPriorityBorder := lipgloss.Color("196")       // Red
 
 	// Priority-based selection colors (lighter versions)
-	lowPrioritySelected := lipgloss.Color("245")      // Light Gray
-	mediumLowPrioritySelected := lipgloss.Color("120") // Light Green
+	lowPrioritySelected := lipgloss.Color("245")        // Light Gray
+	mediumLowPrioritySelected := lipgloss.Color("120")  // Light Green
 	mediumHighPrioritySelected := lipgloss.Color("227") // Light Yellow
-	highPrioritySelected := lipgloss.Color("210")     // Light Red
+	highPrioritySelected := lipgloss.Color("210")       // Light Red
 
 	projectCardStyle := lipgloss.NewStyle().
 		Padding(1, 2).
@@ -114,7 +114,7 @@ func (b *KanbanBoard) View() string {
 			// Determine border color based on priority (4 levels)
 			var borderColor lipgloss.Color
 			var selectedBorderColor lipgloss.Color
-			
+
 			switch project.Priority {
 			case 0:
 				borderColor = lowPriorityBorder

@@ -162,4 +162,3 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 	}
 	return b, nil
 }
-

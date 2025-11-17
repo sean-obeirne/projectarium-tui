@@ -278,4 +278,3 @@ func (m Model) updateProjectPriority(projectID int, priority int) tea.Cmd {
 		return projectPriorityUpdatedMsg{project: project, err: err}
 	}
 }
-
