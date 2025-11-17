@@ -119,7 +119,7 @@ func (c *Client) GetTodosByProject(projectID int) ([]Todo, error) {
 
 // GetTodo retrieves a specific todo by ID
 func (c *Client) GetTodo(id int) (*Todo, error) {
-	url := fmt.Sprintf("%s/api/todos/%d", c.BaseURL, id)
+	url := fmt.Sprintf("%s/todos/%d", c.BaseURL, id)
 
 	resp, err := c.HTTPClient.Get(url)
 	if err != nil {
@@ -208,4 +208,105 @@ func (c *Client) UpdateProjectPriority(id int, priority int) (*Project, error) {
 	}
 
 	return &project, nil
+}
+
+// CreateTodo creates a new todo
+func (c *Client) CreateTodo(description string, priority int, projectID *int) (*Todo, error) {
+	url := fmt.Sprintf("%s/todos", c.BaseURL)
+
+	payload := map[string]interface{}{
+		"description": description,
+		"priority":    priority,
+		"project_id":  projectID,
+	}
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create todo: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var todo Todo
+	if err := json.NewDecoder(resp.Body).Decode(&todo); err != nil {
+		return nil, fmt.Errorf("failed to decode todo: %w", err)
+	}
+
+	return &todo, nil
+}
+
+// UpdateTodo updates an existing todo
+func (c *Client) UpdateTodo(id int, description string, priority int, projectID *int) (*Todo, error) {
+	url := fmt.Sprintf("%s/todos/%d", c.BaseURL, id)
+
+	payload := map[string]interface{}{
+		"description": description,
+		"priority":    priority,
+		"project_id":  projectID,
+	}
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update todo: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var todo Todo
+	if err := json.NewDecoder(resp.Body).Decode(&todo); err != nil {
+		return nil, fmt.Errorf("failed to decode todo: %w", err)
+	}
+
+	return &todo, nil
+}
+
+// DeleteTodo soft-deletes a todo
+func (c *Client) DeleteTodo(id int) error {
+	url := fmt.Sprintf("%s/todos/%d", c.BaseURL, id)
+
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to delete todo: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	return nil
 }

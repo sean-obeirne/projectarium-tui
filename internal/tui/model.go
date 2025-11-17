@@ -103,6 +103,13 @@ func (m Model) Init() tea.Cmd {
 
 // Update handles messages
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// If todo list is showing and in input mode, let it handle keys first
+	if m.showTodoList && m.todoList != nil && (m.todoList.InputMode == AddingMode || m.todoList.InputMode == EditingMode) {
+		var cmd tea.Cmd
+		*m.todoList, cmd = m.todoList.Update(msg)
+		return m, cmd
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
@@ -173,11 +180,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		projectName := "Unknown Project"
+		projectID := 0
 		if m.currentProject != nil {
 			projectName = m.currentProject.Name
+			projectID = m.currentProject.ID
 		}
 
-		m.todoList = NewTodoList(msg.todos, projectName)
+		m.todoList = NewTodoList(msg.todos, projectName, projectID)
 		m.todoList.SetSize(m.width, m.height)
 		m.showTodoList = true
 		return m, nil
@@ -213,6 +222,54 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// (Priority changes may need reordering)
 		if msg.project != nil && m.kanbanBoard != nil {
 			m.kanbanBoard.UpdateProjectInBoard(*msg.project)
+		}
+		return m, nil
+
+	case createTodoMsg:
+		// User wants to create a new todo
+		return m, m.createTodo(msg.description, msg.priority, msg.projectID)
+
+	case updateTodoMsg:
+		// User wants to update a todo
+		return m, m.updateTodo(msg.id, msg.description, msg.priority, msg.projectID)
+
+	case deleteTodoMsg:
+		// User wants to delete a todo
+		return m, m.deleteTodo(msg.id)
+
+	case todoCreatedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Reload todos for the current project
+		if m.currentProject != nil {
+			return m, m.loadTodos
+		}
+		return m, nil
+
+	case todoUpdatedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Reload todos for the current project
+		if m.currentProject != nil {
+			return m, m.loadTodos
+		}
+		return m, nil
+
+	case todoDeletedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Reload todos for the current project
+		if m.currentProject != nil {
+			return m, m.loadTodos
 		}
 		return m, nil
 	}
@@ -364,6 +421,20 @@ type projectPriorityUpdatedMsg struct {
 	err     error
 }
 
+type todoCreatedMsg struct {
+	todo *api.Todo
+	err  error
+}
+
+type todoUpdatedMsg struct {
+	todo *api.Todo
+	err  error
+}
+
+type todoDeletedMsg struct {
+	err error
+}
+
 // Commands
 
 func (m Model) loadProjects() tea.Msg {
@@ -390,5 +461,26 @@ func (m Model) updateProjectPriority(projectID int, priority int) tea.Cmd {
 	return func() tea.Msg {
 		project, err := m.apiClient.UpdateProjectPriority(projectID, priority)
 		return projectPriorityUpdatedMsg{project: project, err: err}
+	}
+}
+
+func (m Model) createTodo(description string, priority int, projectID int) tea.Cmd {
+	return func() tea.Msg {
+		todo, err := m.apiClient.CreateTodo(description, priority, &projectID)
+		return todoCreatedMsg{todo: todo, err: err}
+	}
+}
+
+func (m Model) updateTodo(id int, description string, priority int, projectID *int) tea.Cmd {
+	return func() tea.Msg {
+		todo, err := m.apiClient.UpdateTodo(id, description, priority, projectID)
+		return todoUpdatedMsg{todo: todo, err: err}
+	}
+}
+
+func (m Model) deleteTodo(id int) tea.Cmd {
+	return func() tea.Msg {
+		err := m.apiClient.DeleteTodo(id)
+		return todoDeletedMsg{err: err}
 	}
 }
