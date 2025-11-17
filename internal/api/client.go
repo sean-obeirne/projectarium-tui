@@ -310,3 +310,46 @@ func (c *Client) DeleteTodo(id int) error {
 
 	return nil
 }
+
+// CreateProject creates a new project
+func (c *Client) CreateProject(name, description, path, file, language string, priority int, status string) (*Project, error) {
+	url := fmt.Sprintf("%s/projects", c.BaseURL)
+
+	payload := map[string]interface{}{
+		"name":        name,
+		"description": description,
+		"path":        path,
+		"file":        file,
+		"language":    language,
+		"priority":    priority,
+		"status":      status,
+	}
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var project Project
+	if err := json.NewDecoder(resp.Body).Decode(&project); err != nil {
+		return nil, fmt.Errorf("failed to decode project: %w", err)
+	}
+
+	return &project, nil
+}

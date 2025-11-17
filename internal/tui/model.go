@@ -21,19 +21,21 @@ const (
 
 // Model is the main Bubble Tea model
 type Model struct {
-	apiClient      *api.Client
-	config         *config.Config
-	viewMode       ViewMode
-	projects       []api.Project
-	kanbanBoard    *KanbanBoard
-	todoList       *TodoList
-	showTodoList   bool // Whether to show todo list overlay
-	currentProject *api.Project
-	width          int
-	height         int
-	err            error
-	loading        bool
-	keys           keyMap
+	apiClient        *api.Client
+	config           *config.Config
+	viewMode         ViewMode
+	projects         []api.Project
+	kanbanBoard      *KanbanBoard
+	todoList         *TodoList
+	showTodoList     bool // Whether to show todo list overlay
+	projectModal     *ProjectModal
+	showProjectModal bool // Whether to show project creation modal
+	currentProject   *api.Project
+	width            int
+	height           int
+	err              error
+	loading          bool
+	keys             keyMap
 }
 
 type keyMap struct {
@@ -103,17 +105,44 @@ func (m Model) Init() tea.Cmd {
 
 // Update handles messages
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// If todo list is showing and in input mode, let it handle keys first
-	if m.showTodoList && m.todoList != nil && (m.todoList.InputMode == AddingMode || m.todoList.InputMode == EditingMode) {
-		var cmd tea.Cmd
-		*m.todoList, cmd = m.todoList.Update(msg)
-		return m, cmd
+	// Handle key messages for modal/input routing
+	switch msg.(type) {
+	case tea.KeyMsg:
+		// If project modal is showing, let it handle keys first (except for messages it generates)
+		if m.showProjectModal && m.projectModal != nil {
+			var cmd tea.Cmd
+			*m.projectModal, cmd = m.projectModal.Update(msg)
+			// The modal returns commands that generate messages, let them flow through
+			if cmd != nil {
+				return m, cmd
+			}
+			// If no command, we handled the key, don't process further
+			return m, nil
+		}
+
+		// If todo list is showing and in input mode, let it handle keys first
+		if m.showTodoList && m.todoList != nil && (m.todoList.InputMode == AddingMode || m.todoList.InputMode == EditingMode) {
+			var cmd tea.Cmd
+			*m.todoList, cmd = m.todoList.Update(msg)
+			// The todo list returns commands that generate messages, let them flow through
+			if cmd != nil {
+				return m, cmd
+			}
+			// If no command, we handled the key, don't process further
+			return m, nil
+		}
 	}
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
+			// If project modal is showing, close it instead of quitting
+			if m.showProjectModal {
+				m.showProjectModal = false
+				m.projectModal = nil
+				return m, nil
+			}
 			// If todo list is showing, close it instead of quitting
 			if m.showTodoList {
 				m.showTodoList = false
@@ -155,6 +184,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.todoList != nil {
 			m.todoList.SetSize(msg.Width, msg.Height)
+		}
+		if m.projectModal != nil {
+			m.projectModal.SetSize(msg.Width, msg.Height)
 		}
 
 	case projectsLoadedMsg:
@@ -272,6 +304,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.loadTodos
 		}
 		return m, nil
+
+	case createProjectMsg:
+		// User wants to create a new project
+		return m, m.createProject(msg.name, msg.description, msg.path, msg.file, msg.language, msg.priority, msg.status)
+
+	case cancelProjectCreationMsg:
+		// User cancelled project creation
+		m.showProjectModal = false
+		m.projectModal = nil
+		return m, nil
+
+	case projectCreatedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Close modal and reload projects
+		m.showProjectModal = false
+		m.projectModal = nil
+		m.loading = true
+		m.viewMode = LoadingView
+		return m, m.loadProjects
+
+	case openProjectModalMsg:
+		// Open the project creation modal
+		m.projectModal = NewProjectModal()
+		m.projectModal.SetSize(m.width, m.height)
+		m.showProjectModal = true
+		return m, nil
 	}
 
 	// Update the appropriate view
@@ -302,6 +364,38 @@ func (m Model) View() string {
 	switch m.viewMode {
 	case KanbanBoardView:
 		board := m.kanbanBoardView()
+
+		// Overlay project modal if showing
+		if m.showProjectModal && m.projectModal != nil {
+			modalWidth := 80
+			if modalWidth > m.width-4 {
+				modalWidth = m.width - 4
+			}
+
+			modalHeight := 25
+			if modalHeight > m.height-4 {
+				modalHeight = m.height - 4
+			}
+
+			modalStyle := lipgloss.NewStyle().
+				Width(modalWidth).
+				Height(modalHeight).
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("63")).
+				Padding(1, 2)
+
+			modalView := modalStyle.Render(m.projectModal.View())
+
+			// Center the modal
+			return lipgloss.Place(
+				m.width,
+				m.height,
+				lipgloss.Center,
+				lipgloss.Center,
+				modalView,
+			)
+		}
+
 		// Overlay todo list if showing
 		if m.showTodoList && m.todoList != nil && m.currentProject != nil {
 			// Calculate dimensions
@@ -435,6 +529,13 @@ type todoDeletedMsg struct {
 	err error
 }
 
+type projectCreatedMsg struct {
+	project *api.Project
+	err     error
+}
+
+type openProjectModalMsg struct{}
+
 // Commands
 
 func (m Model) loadProjects() tea.Msg {
@@ -482,5 +583,12 @@ func (m Model) deleteTodo(id int) tea.Cmd {
 	return func() tea.Msg {
 		err := m.apiClient.DeleteTodo(id)
 		return todoDeletedMsg{err: err}
+	}
+}
+
+func (m Model) createProject(name, description, path, file, language string, priority int, status string) tea.Cmd {
+	return func() tea.Msg {
+		project, err := m.apiClient.CreateProject(name, description, path, file, language, priority, status)
+		return projectCreatedMsg{project: project, err: err}
 	}
 }

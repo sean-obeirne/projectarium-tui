@@ -9,6 +9,11 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "a":
+			// Add new project - this will be handled by the parent Model
+			return b, func() tea.Msg {
+				return openProjectModalMsg{}
+			}
 		case "p":
 			// Progress: move project to next status
 			if project := b.GetSelectedProject(); project != nil {

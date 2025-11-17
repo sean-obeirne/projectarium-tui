@@ -36,6 +36,7 @@ func NewTodoList(todos []api.Todo, projectName string, projectID int) *TodoList 
 	ti := textinput.New()
 	ti.Placeholder = "Enter todo description..."
 	ti.CharLimit = 200
+	ti.Width = 40
 
 	return &TodoList{
 		todos:         todos,

@@ -212,7 +212,7 @@ func (b *KanbanBoard) View() string {
 	board := lipgloss.JoinHorizontal(lipgloss.Top, columnViews...)
 
 	// Help text
-	help := helpStyle.Render("  ←/j →/; columns • ↑/l ↓/k projects • enter todos • p progress • r regress • +/- priority • R refresh • q quit")
+	help := helpStyle.Render("  ←/j →/; columns • ↑/l ↓/k projects • enter todos • a add project • p progress • r regress • +/- priority • R refresh • q quit")
 
 	// Combine everything
 	return lipgloss.JoinVertical(
