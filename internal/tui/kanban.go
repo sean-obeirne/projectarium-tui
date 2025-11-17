@@ -80,3 +80,114 @@ func (b *KanbanBoard) SetSize(width, height int) {
 		b.selectedProject = 0
 	}
 }
+
+// GetSelectedProject returns the currently selected project, or nil if none
+func (b *KanbanBoard) GetSelectedProject() *api.Project {
+	if len(b.columns) == 0 || b.selectedCol >= len(b.columns) {
+		return nil
+	}
+	col := b.columns[b.selectedCol]
+	if b.selectedProject >= len(col.Projects) {
+		return nil
+	}
+	return &col.Projects[b.selectedProject]
+}
+
+// GetNextStatus returns the status name for progressing a project forward
+func (b *KanbanBoard) GetNextStatus() string {
+	if b.selectedCol < len(b.columns)-1 {
+		return b.statusNameToAPIStatus(b.columns[b.selectedCol+1].Name)
+	}
+	return "" // Already at the end
+}
+
+// GetPrevStatus returns the status name for regressing a project backward
+func (b *KanbanBoard) GetPrevStatus() string {
+	if b.selectedCol > 0 {
+		return b.statusNameToAPIStatus(b.columns[b.selectedCol-1].Name)
+	}
+	return "" // Already at the start
+}
+
+// statusNameToAPIStatus converts display name to API status value
+func (b *KanbanBoard) statusNameToAPIStatus(displayName string) string {
+	switch displayName {
+	case "Ready":
+		return "ready"
+	case "In Progress":
+		return "in_progress"
+	case "Finished":
+		return "finished"
+	default:
+		return "ready"
+	}
+}
+
+// UpdateProjectInBoard updates a project in the board after an API change
+func (b *KanbanBoard) UpdateProjectInBoard(updatedProject api.Project) {
+	// Remove the project from its current column
+	for colIdx := range b.columns {
+		for projIdx, proj := range b.columns[colIdx].Projects {
+			if proj.ID == updatedProject.ID {
+				// Remove from current column
+				b.columns[colIdx].Projects = append(
+					b.columns[colIdx].Projects[:projIdx],
+					b.columns[colIdx].Projects[projIdx+1:]...,
+				)
+
+				// Find the new column for the project
+				newColIdx := b.getColumnIndexForStatus(updatedProject.Status)
+
+				// Insert into new column in sorted order (priority DESC, then name ASC)
+				inserted := false
+				for i, proj := range b.columns[newColIdx].Projects {
+					// Insert before this project if:
+					// - Our priority is higher, OR
+					// - Same priority but our name comes first alphabetically
+					if updatedProject.Priority > proj.Priority ||
+						(updatedProject.Priority == proj.Priority && updatedProject.Name < proj.Name) {
+						// Insert at position i
+						b.columns[newColIdx].Projects = append(
+							b.columns[newColIdx].Projects[:i],
+							append([]api.Project{updatedProject}, b.columns[newColIdx].Projects[i:]...)...,
+						)
+						b.selectedProject = i
+						b.desiredProject = i
+						inserted = true
+						break
+					}
+				}
+
+				// If not inserted yet, append to end
+				if !inserted {
+					b.columns[newColIdx].Projects = append(b.columns[newColIdx].Projects, updatedProject)
+					b.selectedProject = len(b.columns[newColIdx].Projects) - 1
+					b.desiredProject = b.selectedProject
+				}
+
+				// Update selection to follow the project
+				b.selectedCol = newColIdx
+
+				// Ensure the selected project is visible
+				b.scrollOffset[b.selectedCol] = min(b.selectedProject, b.scrollOffset[b.selectedCol])
+				b.desiredScrollOffset[b.selectedCol] = b.scrollOffset[b.selectedCol]
+
+				return
+			}
+		}
+	}
+}
+
+// getColumnIndexForStatus returns the column index for a given status
+func (b *KanbanBoard) getColumnIndexForStatus(status string) int {
+	switch status {
+	case "ready", "Ready", "READY", "":
+		return 0
+	case "in_progress", "In Progress", "IN_PROGRESS", "in progress":
+		return 1
+	case "finished", "Finished", "FINISHED", "done", "Done", "DONE":
+		return 2
+	default:
+		return 0
+	}
+}

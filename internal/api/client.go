@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -114,4 +115,74 @@ func (c *Client) GetTodo(id int) (*Todo, error) {
 	}
 
 	return &todo, nil
+}
+
+// UpdateProjectStatus updates a project's status
+func (c *Client) UpdateProjectStatus(id int, status string) (*Project, error) {
+	url := fmt.Sprintf("%s/projects/%d/status", c.BaseURL, id)
+
+	payload := map[string]string{"status": status}
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update project status: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var project Project
+	if err := json.NewDecoder(resp.Body).Decode(&project); err != nil {
+		return nil, fmt.Errorf("failed to decode project: %w", err)
+	}
+
+	return &project, nil
+}
+
+// UpdateProjectPriority updates a project's priority
+func (c *Client) UpdateProjectPriority(id int, priority int) (*Project, error) {
+	url := fmt.Sprintf("%s/projects/%d/priority", c.BaseURL, id)
+
+	payload := map[string]int{"priority": priority}
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update project priority: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var project Project
+	if err := json.NewDecoder(resp.Body).Decode(&project); err != nil {
+		return nil, fmt.Errorf("failed to decode project: %w", err)
+	}
+
+	return &project, nil
 }

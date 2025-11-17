@@ -74,8 +74,8 @@ var keys = keyMap{
 		key.WithHelp("q", "quit"),
 	),
 	Refresh: key.NewBinding(
-		key.WithKeys("r"),
-		key.WithHelp("r", "refresh"),
+		key.WithKeys("R"),
+		key.WithHelp("R", "refresh"),
 	),
 }
 
@@ -134,6 +134,40 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.kanbanBoard.SetSize(m.width, m.height)
 		m.viewMode = KanbanBoardView
 		return m, nil
+
+	case progressProjectMsg:
+		return m, m.updateProjectStatus(msg.projectID, msg.status)
+
+	case regressProjectMsg:
+		return m, m.updateProjectStatus(msg.projectID, msg.status)
+
+	case updatePriorityMsg:
+		return m, m.updateProjectPriority(msg.projectID, msg.priority)
+
+	case projectStatusUpdatedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Update the project in the kanban board
+		if msg.project != nil && m.kanbanBoard != nil {
+			m.kanbanBoard.UpdateProjectInBoard(*msg.project)
+		}
+		return m, nil
+
+	case projectPriorityUpdatedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Update the project in the kanban board by reloading
+		// (Priority changes may need reordering)
+		if msg.project != nil && m.kanbanBoard != nil {
+			m.kanbanBoard.UpdateProjectInBoard(*msg.project)
+		}
+		return m, nil
 	}
 
 	// Update the kanban board view
@@ -188,7 +222,7 @@ func (m Model) errorView() string {
 		MarginLeft(2)
 
 	errMsg := errorStyle.Render(fmt.Sprintf("Error: %v", m.err))
-	help := helpStyle.Render("\nPress 'r' to retry, 'q' to quit")
+	help := helpStyle.Render("\nPress 'R' to retry, 'q' to quit")
 	return errMsg + help
 }
 
@@ -199,9 +233,49 @@ type projectsLoadedMsg struct {
 	err      error
 }
 
+type progressProjectMsg struct {
+	projectID int
+	status    string
+}
+
+type regressProjectMsg struct {
+	projectID int
+	status    string
+}
+
+type updatePriorityMsg struct {
+	projectID int
+	priority  int
+}
+
+type projectStatusUpdatedMsg struct {
+	project *api.Project
+	err     error
+}
+
+type projectPriorityUpdatedMsg struct {
+	project *api.Project
+	err     error
+}
+
 // Commands
 
 func (m Model) loadProjects() tea.Msg {
 	projects, err := m.apiClient.GetProjects()
 	return projectsLoadedMsg{projects: projects, err: err}
 }
+
+func (m Model) updateProjectStatus(projectID int, status string) tea.Cmd {
+	return func() tea.Msg {
+		project, err := m.apiClient.UpdateProjectStatus(projectID, status)
+		return projectStatusUpdatedMsg{project: project, err: err}
+	}
+}
+
+func (m Model) updateProjectPriority(projectID int, priority int) tea.Cmd {
+	return func() tea.Msg {
+		project, err := m.apiClient.UpdateProjectPriority(projectID, priority)
+		return projectPriorityUpdatedMsg{project: project, err: err}
+	}
+}
+

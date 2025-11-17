@@ -32,20 +32,26 @@ func (b *KanbanBoard) View() string {
 		Foreground(lipgloss.Color("15")).
 		Align(lipgloss.Center)
 
-	// Priority-based border colors
-	lowPriorityBorder := lipgloss.Color("240")    // Gray
-	mediumPriorityBorder := lipgloss.Color("214") // Orange/Yellow
-	highPriorityBorder := lipgloss.Color("196")   // Red
-	selectedBorder := lipgloss.Color("51")        // Purple
+	// Priority-based border colors (4 levels: 0-3)
+	// Priority 0: Low (Gray)
+	// Priority 1: Medium-Low (Green)
+	// Priority 2: Medium-High (Yellow/Orange)
+	// Priority 3: High (Red)
+	lowPriorityBorder := lipgloss.Color("240")      // Gray
+	mediumLowPriorityBorder := lipgloss.Color("70") // Green
+	mediumHighPriorityBorder := lipgloss.Color("214") // Yellow/Orange
+	highPriorityBorder := lipgloss.Color("196")     // Red
+
+	// Priority-based selection colors (lighter versions)
+	lowPrioritySelected := lipgloss.Color("245")      // Light Gray
+	mediumLowPrioritySelected := lipgloss.Color("120") // Light Green
+	mediumHighPrioritySelected := lipgloss.Color("227") // Light Yellow
+	highPrioritySelected := lipgloss.Color("210")     // Light Red
 
 	projectCardStyle := lipgloss.NewStyle().
 		Padding(1, 2).
 		MarginBottom(1).
 		Border(lipgloss.RoundedBorder())
-
-	selectedProjectCardStyle := projectCardStyle.
-		BorderForeground(selectedBorder).
-		Bold(true)
 
 	emptyColumnStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
@@ -105,20 +111,28 @@ func (b *KanbanBoard) View() string {
 		for j := scrollStart; j < scrollEnd; j++ {
 			project := col.Projects[j]
 
-			// Determine border color based on priority
+			// Determine border color based on priority (4 levels)
 			var borderColor lipgloss.Color
+			var selectedBorderColor lipgloss.Color
+			
 			switch project.Priority {
 			case 0:
-				borderColor = lowPriorityBorder // Gray
+				borderColor = lowPriorityBorder
+				selectedBorderColor = lowPrioritySelected
 			case 1:
-				borderColor = mediumPriorityBorder // Yellow/Orange
-			default: // 2 or above
-				borderColor = highPriorityBorder // Red
+				borderColor = mediumLowPriorityBorder
+				selectedBorderColor = mediumLowPrioritySelected
+			case 2:
+				borderColor = mediumHighPriorityBorder
+				selectedBorderColor = mediumHighPrioritySelected
+			default: // 3 or above
+				borderColor = highPriorityBorder
+				selectedBorderColor = highPrioritySelected
 			}
 
 			style := projectCardStyle.BorderForeground(borderColor)
 			if i == b.selectedCol && j == b.selectedProject {
-				style = selectedProjectCardStyle
+				style = projectCardStyle.BorderForeground(selectedBorderColor).Bold(true)
 			}
 
 			// Build project card content
@@ -198,7 +212,7 @@ func (b *KanbanBoard) View() string {
 	board := lipgloss.JoinHorizontal(lipgloss.Top, columnViews...)
 
 	// Help text
-	help := helpStyle.Render("  ←/h →/l columns • ↑/k ↓/j projects • r refresh • q quit")
+	help := helpStyle.Render("  ←/h →/l columns • ↑/k ↓/j projects • p progress • r regress • +/- priority • R refresh • q quit")
 
 	// Combine everything
 	return lipgloss.JoinVertical(
