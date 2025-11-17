@@ -49,20 +49,20 @@ type keyMap struct {
 
 var keys = keyMap{
 	Up: key.NewBinding(
-		key.WithKeys("up", "k"),
-		key.WithHelp("↑/k", "move up"),
+		key.WithKeys("up", "l"),
+		key.WithHelp("↑/l", "move up"),
 	),
 	Down: key.NewBinding(
-		key.WithKeys("down", "j"),
-		key.WithHelp("↓/j", "move down"),
+		key.WithKeys("down", "k"),
+		key.WithHelp("↓/k", "move down"),
 	),
 	Left: key.NewBinding(
-		key.WithKeys("left", "h"),
-		key.WithHelp("←/h", "move left"),
+		key.WithKeys("left", "j"),
+		key.WithHelp("←/j", "move left"),
 	),
 	Right: key.NewBinding(
-		key.WithKeys("right", "l"),
-		key.WithHelp("→/l", "move right"),
+		key.WithKeys("right", ";"),
+		key.WithHelp("→/;", "move right"),
 	),
 	Enter: key.NewBinding(
 		key.WithKeys("enter"),

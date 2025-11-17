@@ -100,11 +100,11 @@ func (t TodoList) Update(msg tea.Msg) (TodoList, tea.Cmd) {
 
 		// Normal mode key handling
 		switch msg.String() {
-		case "up", "k":
+		case "up", "l":
 			if t.selectedIndex > 0 {
 				t.selectedIndex--
 			}
-		case "down", "j":
+		case "down", "k":
 			if t.selectedIndex < len(t.todos)-1 {
 				t.selectedIndex++
 			}
@@ -247,7 +247,7 @@ func (t *TodoList) View() string {
 	// Help text
 	var help string
 	if t.InputMode == NormalMode {
-		help = helpStyle.Render("↑/k ↓/j navigate • a add • e edit • d delete • +/- priority • esc close")
+		help = helpStyle.Render("↑/l ↓/k navigate • a add • e edit • d delete • +/- priority • esc close")
 	} else {
 		help = helpStyle.Render("enter submit • esc cancel")
 	}

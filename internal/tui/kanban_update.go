@@ -55,7 +55,7 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 					return updatePriorityMsg{projectID: project.ID, priority: newPriority}
 				}
 			}
-		case "left", "h":
+		case "left", "j":
 			// Move left, skipping empty columns
 			for i := b.selectedCol - 1; i >= 0; i-- {
 				if len(b.columns[i].Projects) > 0 {
@@ -87,7 +87,7 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 					break
 				}
 			}
-		case "right", "l":
+		case "right", ";":
 			// Move right, skipping empty columns
 			for i := b.selectedCol + 1; i < len(b.columns); i++ {
 				if len(b.columns[i].Projects) > 0 {
@@ -117,7 +117,7 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 					break
 				}
 			}
-		case "up", "k":
+		case "up", "l":
 			if b.selectedProject > 0 {
 				b.selectedProject--
 				// Update desiredProject to track the maximum index reached
@@ -127,7 +127,7 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 				// Save the current scroll position as desired
 				b.desiredScrollOffset[b.selectedCol] = b.scrollOffset[b.selectedCol]
 			}
-		case "down", "j":
+		case "down", "k":
 			currentCol := b.columns[b.selectedCol]
 			if b.selectedProject < len(currentCol.Projects)-1 {
 				b.selectedProject++
