@@ -21,16 +21,23 @@ const (
 
 // Model is the main Bubble Tea model
 type Model struct {
-	apiClient   *api.Client
-	config      *config.Config
-	viewMode    ViewMode
-	projects    []api.Project
-	kanbanBoard *KanbanBoard
-	width       int
-	height      int
-	err         error
-	loading     bool
-	keys        keyMap
+	apiClient         *api.Client
+	config            *config.Config
+	viewMode          ViewMode
+	projects          []api.Project
+	kanbanBoard       *KanbanBoard
+	todoList          *TodoList
+	showTodoList      bool // Whether to show todo list overlay
+	projectModal      *ProjectModal
+	showProjectModal  bool // Whether to show project creation modal
+	showDeleteConfirm bool // Whether to show delete confirmation
+	projectToDelete   *api.Project
+	currentProject    *api.Project
+	width             int
+	height            int
+	err               error
+	loading           bool
+	keys              keyMap
 }
 
 type keyMap struct {
@@ -46,20 +53,20 @@ type keyMap struct {
 
 var keys = keyMap{
 	Up: key.NewBinding(
-		key.WithKeys("up", "k"),
-		key.WithHelp("↑/k", "move up"),
+		key.WithKeys("up", "l"),
+		key.WithHelp("↑/l", "move up"),
 	),
 	Down: key.NewBinding(
-		key.WithKeys("down", "j"),
-		key.WithHelp("↓/j", "move down"),
+		key.WithKeys("down", "k"),
+		key.WithHelp("↓/k", "move down"),
 	),
 	Left: key.NewBinding(
-		key.WithKeys("left", "h"),
-		key.WithHelp("←/h", "move left"),
+		key.WithKeys("left", "j"),
+		key.WithHelp("←/j", "move left"),
 	),
 	Right: key.NewBinding(
-		key.WithKeys("right", "l"),
-		key.WithHelp("→/l", "move right"),
+		key.WithKeys("right", ";"),
+		key.WithHelp("→/;", "move right"),
 	),
 	Enter: key.NewBinding(
 		key.WithKeys("enter"),
@@ -74,8 +81,8 @@ var keys = keyMap{
 		key.WithHelp("q", "quit"),
 	),
 	Refresh: key.NewBinding(
-		key.WithKeys("r"),
-		key.WithHelp("r", "refresh"),
+		key.WithKeys("R"),
+		key.WithHelp("R", "refresh"),
 	),
 }
 
@@ -100,16 +107,98 @@ func (m Model) Init() tea.Cmd {
 
 // Update handles messages
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle key messages for modal/input routing
+	switch keyMsg := msg.(type) {
+	case tea.KeyMsg:
+		// If delete confirmation is showing, handle y/n keys
+		if m.showDeleteConfirm {
+			switch keyMsg.String() {
+			case "y", "Y":
+				// Confirm deletion
+				if m.projectToDelete != nil {
+					m.showDeleteConfirm = false
+					projectID := m.projectToDelete.ID
+					m.projectToDelete = nil
+					return m, m.deleteProject(projectID)
+				}
+				m.showDeleteConfirm = false
+				m.projectToDelete = nil
+				return m, nil
+			case "n", "N", "esc", "q":
+				// Cancel deletion
+				m.showDeleteConfirm = false
+				m.projectToDelete = nil
+				return m, nil
+			}
+			// Ignore other keys when confirmation is showing
+			return m, nil
+		}
+
+		// If project modal is showing, let it handle keys first (except for messages it generates)
+		if m.showProjectModal && m.projectModal != nil {
+			var cmd tea.Cmd
+			*m.projectModal, cmd = m.projectModal.Update(msg)
+			// The modal returns commands that generate messages, let them flow through
+			if cmd != nil {
+				return m, cmd
+			}
+			// If no command, we handled the key, don't process further
+			return m, nil
+		}
+
+		// If todo list is showing and in input mode, let it handle keys first
+		if m.showTodoList && m.todoList != nil && (m.todoList.InputMode == AddingMode || m.todoList.InputMode == EditingMode) {
+			var cmd tea.Cmd
+			*m.todoList, cmd = m.todoList.Update(msg)
+			// The todo list returns commands that generate messages, let them flow through
+			if cmd != nil {
+				return m, cmd
+			}
+			// If no command, we handled the key, don't process further
+			return m, nil
+		}
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
+			// If project modal is showing, close it instead of quitting
+			if m.showProjectModal {
+				m.showProjectModal = false
+				m.projectModal = nil
+				return m, nil
+			}
+			// If todo list is showing, close it instead of quitting
+			if m.showTodoList {
+				m.showTodoList = false
+				m.currentProject = nil
+				m.todoList = nil
+				return m, nil
+			}
 			return m, tea.Quit
 		case key.Matches(msg, m.keys.Refresh):
 			if m.viewMode == KanbanBoardView {
 				m.loading = true
 				m.viewMode = LoadingView
 				return m, m.loadProjects
+			}
+		case key.Matches(msg, m.keys.Enter):
+			// Toggle todo list for selected project
+			if m.viewMode == KanbanBoardView && m.kanbanBoard != nil {
+				if m.showTodoList {
+					// Close todo list if already showing
+					m.showTodoList = false
+					m.currentProject = nil
+					m.todoList = nil
+					return m, nil
+				} else {
+					// Open todo list for selected project
+					if project := m.kanbanBoard.GetSelectedProject(); project != nil {
+						m.currentProject = project
+						return m, m.loadTodos
+					}
+				}
 			}
 		}
 
@@ -118,6 +207,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		if m.kanbanBoard != nil {
 			m.kanbanBoard.SetSize(msg.Width, msg.Height)
+		}
+		if m.todoList != nil {
+			m.todoList.SetSize(msg.Width, msg.Height)
+		}
+		if m.projectModal != nil {
+			m.projectModal.SetSize(msg.Width, msg.Height)
 		}
 
 	case projectsLoadedMsg:
@@ -134,12 +229,198 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.kanbanBoard.SetSize(m.width, m.height)
 		m.viewMode = KanbanBoardView
 		return m, nil
+
+	case todosLoadedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+
+		projectName := "Unknown Project"
+		projectID := 0
+		if m.currentProject != nil {
+			projectName = m.currentProject.Name
+			projectID = m.currentProject.ID
+		}
+
+		m.todoList = NewTodoList(msg.todos, projectName, projectID)
+		m.todoList.SetSize(m.width, m.height)
+		m.showTodoList = true
+		return m, nil
+
+	case progressProjectMsg:
+		return m, m.updateProjectStatus(msg.projectID, msg.status)
+
+	case regressProjectMsg:
+		return m, m.updateProjectStatus(msg.projectID, msg.status)
+
+	case updatePriorityMsg:
+		return m, m.updateProjectPriority(msg.projectID, msg.priority)
+
+	case projectStatusUpdatedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Update the project in the kanban board
+		if msg.project != nil && m.kanbanBoard != nil {
+			m.kanbanBoard.UpdateProjectInBoard(*msg.project)
+		}
+		return m, nil
+
+	case projectPriorityUpdatedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Update the project in the kanban board by reloading
+		// (Priority changes may need reordering)
+		if msg.project != nil && m.kanbanBoard != nil {
+			m.kanbanBoard.UpdateProjectInBoard(*msg.project)
+		}
+		return m, nil
+
+	case createTodoMsg:
+		// User wants to create a new todo
+		return m, m.createTodo(msg.description, msg.priority, msg.projectID)
+
+	case updateTodoMsg:
+		// User wants to update a todo
+		return m, m.updateTodo(msg.id, msg.description, msg.priority, msg.projectID)
+
+	case deleteTodoMsg:
+		// User wants to delete a todo
+		return m, m.deleteTodo(msg.id)
+
+	case todoCreatedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Reload todos for the current project
+		if m.currentProject != nil {
+			return m, m.loadTodos
+		}
+		return m, nil
+
+	case todoUpdatedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Reload todos for the current project
+		if m.currentProject != nil {
+			return m, m.loadTodos
+		}
+		return m, nil
+
+	case todoDeletedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Reload todos for the current project
+		if m.currentProject != nil {
+			return m, m.loadTodos
+		}
+		return m, nil
+
+	case createProjectMsg:
+		// User wants to create a new project
+		return m, m.createProject(msg.name, msg.description, msg.path, msg.file, msg.language, msg.priority, msg.status)
+
+	case updateProjectMsg:
+		// User wants to update an existing project
+		return m, m.updateProject(msg.id, msg.name, msg.description, msg.path, msg.file, msg.language, msg.priority, msg.status)
+
+	case cancelProjectCreationMsg:
+		// User cancelled project creation
+		m.showProjectModal = false
+		m.projectModal = nil
+		return m, nil
+
+	case projectCreatedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Close modal and reload projects
+		m.showProjectModal = false
+		m.projectModal = nil
+		m.loading = true
+		m.viewMode = LoadingView
+		return m, m.loadProjects
+
+	case projectUpdatedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Close modal and reload projects
+		m.showProjectModal = false
+		m.projectModal = nil
+		m.loading = true
+		m.viewMode = LoadingView
+		return m, m.loadProjects
+
+	case deleteProjectMsg:
+		// User wants to delete a project - show confirmation first
+		if m.kanbanBoard != nil {
+			project := m.kanbanBoard.GetSelectedProject()
+			if project != nil && project.ID == msg.projectID {
+				m.projectToDelete = project
+				m.showDeleteConfirm = true
+			}
+		}
+		return m, nil
+
+	case projectDeletedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Reload projects after deletion
+		m.loading = true
+		m.viewMode = LoadingView
+		return m, m.loadProjects
+
+	case openProjectModalMsg:
+		// Open the project creation modal
+		m.projectModal = NewProjectModal()
+		m.projectModal.SetSize(m.width, m.height)
+		m.showProjectModal = true
+		return m, nil
+
+	case openEditProjectModalMsg:
+		// Open the project edit modal
+		m.projectModal = NewProjectModalForEdit(msg.project)
+		m.projectModal.SetSize(m.width, m.height)
+		m.showProjectModal = true
+		return m, nil
 	}
 
-	// Update the kanban board view
+	// Update the appropriate view
 	var cmd tea.Cmd
 	if m.viewMode == KanbanBoardView && m.kanbanBoard != nil {
-		*m.kanbanBoard, cmd = m.kanbanBoard.Update(msg)
+		// Only handle kanban updates if todo list is not showing
+		if !m.showTodoList {
+			*m.kanbanBoard, cmd = m.kanbanBoard.Update(msg)
+			return m, cmd
+		}
+	}
+
+	// If todo list is showing, let it handle updates
+	if m.showTodoList && m.todoList != nil {
+		*m.todoList, cmd = m.todoList.Update(msg)
 		return m, cmd
 	}
 
@@ -154,7 +435,126 @@ func (m Model) View() string {
 
 	switch m.viewMode {
 	case KanbanBoardView:
-		return m.kanbanBoardView()
+		board := m.kanbanBoardView()
+
+		// Overlay delete confirmation if showing
+		if m.showDeleteConfirm && m.projectToDelete != nil {
+			confirmStyle := lipgloss.NewStyle().
+				Width(50).
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("196")).
+				Padding(1, 2).
+				Align(lipgloss.Center)
+
+			titleStyle := lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("196")).
+				MarginBottom(1)
+
+			helpStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("241")).
+				MarginTop(1)
+
+			title := titleStyle.Render("⚠️  Delete Project?")
+			message := fmt.Sprintf("Are you sure you want to delete:\n\n%s", m.projectToDelete.Name)
+			help := helpStyle.Render("y = yes • n = no")
+
+			content := lipgloss.JoinVertical(
+				lipgloss.Center,
+				title,
+				"",
+				message,
+				"",
+				help,
+			)
+
+			confirmView := confirmStyle.Render(content)
+
+			return lipgloss.Place(
+				m.width,
+				m.height,
+				lipgloss.Center,
+				lipgloss.Center,
+				confirmView,
+			)
+		}
+
+		// Overlay project modal if showing
+		if m.showProjectModal && m.projectModal != nil {
+			modalWidth := 80
+			if modalWidth > m.width-4 {
+				modalWidth = m.width - 4
+			}
+
+			modalHeight := 25
+			if modalHeight > m.height-4 {
+				modalHeight = m.height - 4
+			}
+
+			modalStyle := lipgloss.NewStyle().
+				Width(modalWidth).
+				Height(modalHeight).
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("63")).
+				Padding(1, 2)
+
+			modalView := modalStyle.Render(m.projectModal.View())
+
+			// Center the modal
+			return lipgloss.Place(
+				m.width,
+				m.height,
+				lipgloss.Center,
+				lipgloss.Center,
+				modalView,
+			)
+		}
+
+		// Overlay todo list if showing
+		if m.showTodoList && m.todoList != nil && m.currentProject != nil {
+			// Calculate dimensions
+			projectCardWidth := 40
+			todoListWidth := int(float64(m.width) * 0.5)
+			if todoListWidth < 50 {
+				todoListWidth = 50
+			}
+
+			modalHeight := int(float64(m.height) * 0.7)
+			if modalHeight < 20 {
+				modalHeight = 20
+			}
+
+			// Render the project card
+			projectCard := m.kanbanBoard.RenderProjectCard(m.currentProject, projectCardWidth)
+
+			// Style the todo list
+			todoStyle := lipgloss.NewStyle().
+				Width(todoListWidth).
+				Height(modalHeight).
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("63")).
+				Padding(1, 2)
+
+			todoView := todoStyle.Render(m.todoList.View())
+
+			// Join project card and todo list horizontally
+			combined := lipgloss.JoinHorizontal(
+				lipgloss.Top,
+				projectCard,
+				"  ", // spacing
+				todoView,
+			)
+
+			// Center the combined view
+			return lipgloss.Place(
+				m.width,
+				m.height,
+				lipgloss.Center,
+				lipgloss.Center,
+				combined,
+			)
+		}
+		return board
 	case ErrorView:
 		return m.errorView()
 	default:
@@ -188,7 +588,7 @@ func (m Model) errorView() string {
 		MarginLeft(2)
 
 	errMsg := errorStyle.Render(fmt.Sprintf("Error: %v", m.err))
-	help := helpStyle.Render("\nPress 'r' to retry, 'q' to quit")
+	help := helpStyle.Render("\nPress 'R' to retry, 'q' to quit")
 	return errMsg + help
 }
 
@@ -199,9 +599,141 @@ type projectsLoadedMsg struct {
 	err      error
 }
 
+type todosLoadedMsg struct {
+	todos []api.Todo
+	err   error
+}
+
+type progressProjectMsg struct {
+	projectID int
+	status    string
+}
+
+type regressProjectMsg struct {
+	projectID int
+	status    string
+}
+
+type updatePriorityMsg struct {
+	projectID int
+	priority  int
+}
+
+type projectStatusUpdatedMsg struct {
+	project *api.Project
+	err     error
+}
+
+type projectPriorityUpdatedMsg struct {
+	project *api.Project
+	err     error
+}
+
+type todoCreatedMsg struct {
+	todo *api.Todo
+	err  error
+}
+
+type todoUpdatedMsg struct {
+	todo *api.Todo
+	err  error
+}
+
+type todoDeletedMsg struct {
+	err error
+}
+
+type projectCreatedMsg struct {
+	project *api.Project
+	err     error
+}
+
+type projectUpdatedMsg struct {
+	project *api.Project
+	err     error
+}
+
+type projectDeletedMsg struct {
+	err error
+}
+
+type deleteProjectMsg struct {
+	projectID int
+}
+
+type openProjectModalMsg struct{}
+
+type openEditProjectModalMsg struct {
+	project *api.Project
+}
+
 // Commands
 
 func (m Model) loadProjects() tea.Msg {
 	projects, err := m.apiClient.GetProjects()
 	return projectsLoadedMsg{projects: projects, err: err}
+}
+
+func (m Model) loadTodos() tea.Msg {
+	if m.currentProject == nil {
+		return todosLoadedMsg{todos: []api.Todo{}, err: nil}
+	}
+	todos, err := m.apiClient.GetTodosByProject(m.currentProject.ID)
+	return todosLoadedMsg{todos: todos, err: err}
+}
+
+func (m Model) updateProjectStatus(projectID int, status string) tea.Cmd {
+	return func() tea.Msg {
+		project, err := m.apiClient.UpdateProjectStatus(projectID, status)
+		return projectStatusUpdatedMsg{project: project, err: err}
+	}
+}
+
+func (m Model) updateProjectPriority(projectID int, priority int) tea.Cmd {
+	return func() tea.Msg {
+		project, err := m.apiClient.UpdateProjectPriority(projectID, priority)
+		return projectPriorityUpdatedMsg{project: project, err: err}
+	}
+}
+
+func (m Model) createTodo(description string, priority int, projectID int) tea.Cmd {
+	return func() tea.Msg {
+		todo, err := m.apiClient.CreateTodo(description, priority, &projectID)
+		return todoCreatedMsg{todo: todo, err: err}
+	}
+}
+
+func (m Model) updateTodo(id int, description string, priority int, projectID *int) tea.Cmd {
+	return func() tea.Msg {
+		todo, err := m.apiClient.UpdateTodo(id, description, priority, projectID)
+		return todoUpdatedMsg{todo: todo, err: err}
+	}
+}
+
+func (m Model) deleteTodo(id int) tea.Cmd {
+	return func() tea.Msg {
+		err := m.apiClient.DeleteTodo(id)
+		return todoDeletedMsg{err: err}
+	}
+}
+
+func (m Model) createProject(name, description, path, file, language string, priority int, status string) tea.Cmd {
+	return func() tea.Msg {
+		project, err := m.apiClient.CreateProject(name, description, path, file, language, priority, status)
+		return projectCreatedMsg{project: project, err: err}
+	}
+}
+
+func (m Model) updateProject(id int, name, description, path, file, language string, priority int, status string) tea.Cmd {
+	return func() tea.Msg {
+		project, err := m.apiClient.UpdateProject(id, name, description, path, file, language, priority, status)
+		return projectUpdatedMsg{project: project, err: err}
+	}
+}
+
+func (m Model) deleteProject(id int) tea.Cmd {
+	return func() tea.Msg {
+		err := m.apiClient.DeleteProject(id)
+		return projectDeletedMsg{err: err}
+	}
 }

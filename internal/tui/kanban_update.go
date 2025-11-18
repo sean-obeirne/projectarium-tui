@@ -9,7 +9,72 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "left", "h":
+		case "a":
+			// Add new project - this will be handled by the parent Model
+			return b, func() tea.Msg {
+				return openProjectModalMsg{}
+			}
+		case "e":
+			// Edit selected project - this will be handled by the parent Model
+			if project := b.GetSelectedProject(); project != nil {
+				return b, func() tea.Msg {
+					return openEditProjectModalMsg{project: project}
+				}
+			}
+		case "d", "x":
+			// Delete selected project - this will be handled by the parent Model
+			if project := b.GetSelectedProject(); project != nil {
+				return b, func() tea.Msg {
+					return deleteProjectMsg{projectID: project.ID}
+				}
+			}
+		case "p":
+			// Progress: move project to next status
+			if project := b.GetSelectedProject(); project != nil {
+				nextStatus := b.GetNextStatus()
+				if nextStatus != "" {
+					return b, func() tea.Msg {
+						// This will be handled by the parent Model
+						return progressProjectMsg{projectID: project.ID, status: nextStatus}
+					}
+				}
+			}
+		case "r":
+			// Regress: move project to previous status
+			if project := b.GetSelectedProject(); project != nil {
+				prevStatus := b.GetPrevStatus()
+				if prevStatus != "" {
+					return b, func() tea.Msg {
+						// This will be handled by the parent Model
+						return regressProjectMsg{projectID: project.ID, status: prevStatus}
+					}
+				}
+			}
+		case "+", "=":
+			// Increase priority (maximum 3)
+			if project := b.GetSelectedProject(); project != nil {
+				newPriority := project.Priority + 1
+				if newPriority > 3 {
+					newPriority = 3
+				}
+				return b, func() tea.Msg {
+					// This will be handled by the parent Model
+					return updatePriorityMsg{projectID: project.ID, priority: newPriority}
+				}
+			}
+		case "-", "_":
+			// Decrease priority (minimum 0)
+			if project := b.GetSelectedProject(); project != nil {
+				newPriority := project.Priority - 1
+				if newPriority < 0 {
+					newPriority = 0
+				}
+				return b, func() tea.Msg {
+					// This will be handled by the parent Model
+					return updatePriorityMsg{projectID: project.ID, priority: newPriority}
+				}
+			}
+		case "left", "j":
 			// Move left, skipping empty columns
 			for i := b.selectedCol - 1; i >= 0; i-- {
 				if len(b.columns[i].Projects) > 0 {
@@ -41,7 +106,7 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 					break
 				}
 			}
-		case "right", "l":
+		case "right", ";":
 			// Move right, skipping empty columns
 			for i := b.selectedCol + 1; i < len(b.columns); i++ {
 				if len(b.columns[i].Projects) > 0 {
@@ -71,7 +136,7 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 					break
 				}
 			}
-		case "up", "k":
+		case "up", "l":
 			if b.selectedProject > 0 {
 				b.selectedProject--
 				// Update desiredProject to track the maximum index reached
@@ -81,7 +146,7 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 				// Save the current scroll position as desired
 				b.desiredScrollOffset[b.selectedCol] = b.scrollOffset[b.selectedCol]
 			}
-		case "down", "j":
+		case "down", "k":
 			currentCol := b.columns[b.selectedCol]
 			if b.selectedProject < len(currentCol.Projects)-1 {
 				b.selectedProject++
