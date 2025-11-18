@@ -21,23 +21,23 @@ const (
 
 // Model is the main Bubble Tea model
 type Model struct {
-	apiClient             *api.Client
-	config                *config.Config
-	viewMode              ViewMode
-	projects              []api.Project
-	kanbanBoard           *KanbanBoard
-	todoList              *TodoList
-	showTodoList          bool // Whether to show todo list overlay
-	projectModal          *ProjectModal
-	showProjectModal      bool // Whether to show project creation modal
-	showDeleteConfirm     bool // Whether to show delete confirmation
-	projectToDelete       *api.Project
-	currentProject        *api.Project
-	width                 int
-	height                int
-	err                   error
-	loading               bool
-	keys                  keyMap
+	apiClient         *api.Client
+	config            *config.Config
+	viewMode          ViewMode
+	projects          []api.Project
+	kanbanBoard       *KanbanBoard
+	todoList          *TodoList
+	showTodoList      bool // Whether to show todo list overlay
+	projectModal      *ProjectModal
+	showProjectModal  bool // Whether to show project creation modal
+	showDeleteConfirm bool // Whether to show delete confirmation
+	projectToDelete   *api.Project
+	currentProject    *api.Project
+	width             int
+	height            int
+	err               error
+	loading           bool
+	keys              keyMap
 }
 
 type keyMap struct {
@@ -133,7 +133,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Ignore other keys when confirmation is showing
 			return m, nil
 		}
-		
+
 		// If project modal is showing, let it handle keys first (except for messages it generates)
 		if m.showProjectModal && m.projectModal != nil {
 			var cmd tea.Cmd
