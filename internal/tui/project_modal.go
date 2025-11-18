@@ -96,7 +96,7 @@ func NewProjectModalForEdit(project *api.Project) *ProjectModal {
 	modal := NewProjectModal()
 	modal.isEditMode = true
 	modal.projectID = project.ID
-	
+
 	// Populate fields with existing values
 	modal.inputs[nameField].SetValue(project.Name)
 	modal.inputs[descriptionField].SetValue(project.Description)
@@ -104,7 +104,7 @@ func NewProjectModalForEdit(project *api.Project) *ProjectModal {
 	modal.inputs[fileField].SetValue(project.File)
 	modal.inputs[languageField].SetValue(project.Language)
 	modal.inputs[priorityField].SetValue(fmt.Sprintf("%d", project.Priority))
-	
+
 	// Set selected status based on project status
 	for i, status := range modal.statusOptions {
 		if status == project.Status {
@@ -112,7 +112,7 @@ func NewProjectModalForEdit(project *api.Project) *ProjectModal {
 			break
 		}
 	}
-	
+
 	return modal
 }
 
