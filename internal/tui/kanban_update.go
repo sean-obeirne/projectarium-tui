@@ -21,6 +21,13 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 					return openEditProjectModalMsg{project: project}
 				}
 			}
+		case "d", "x":
+			// Delete selected project - this will be handled by the parent Model
+			if project := b.GetSelectedProject(); project != nil {
+				return b, func() tea.Msg {
+					return deleteProjectMsg{projectID: project.ID}
+				}
+			}
 		case "p":
 			// Progress: move project to next status
 			if project := b.GetSelectedProject(); project != nil {

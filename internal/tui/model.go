@@ -21,21 +21,23 @@ const (
 
 // Model is the main Bubble Tea model
 type Model struct {
-	apiClient        *api.Client
-	config           *config.Config
-	viewMode         ViewMode
-	projects         []api.Project
-	kanbanBoard      *KanbanBoard
-	todoList         *TodoList
-	showTodoList     bool // Whether to show todo list overlay
-	projectModal     *ProjectModal
-	showProjectModal bool // Whether to show project creation modal
-	currentProject   *api.Project
-	width            int
-	height           int
-	err              error
-	loading          bool
-	keys             keyMap
+	apiClient             *api.Client
+	config                *config.Config
+	viewMode              ViewMode
+	projects              []api.Project
+	kanbanBoard           *KanbanBoard
+	todoList              *TodoList
+	showTodoList          bool // Whether to show todo list overlay
+	projectModal          *ProjectModal
+	showProjectModal      bool // Whether to show project creation modal
+	showDeleteConfirm     bool // Whether to show delete confirmation
+	projectToDelete       *api.Project
+	currentProject        *api.Project
+	width                 int
+	height                int
+	err                   error
+	loading               bool
+	keys                  keyMap
 }
 
 type keyMap struct {
@@ -106,8 +108,32 @@ func (m Model) Init() tea.Cmd {
 // Update handles messages
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle key messages for modal/input routing
-	switch msg.(type) {
+	switch keyMsg := msg.(type) {
 	case tea.KeyMsg:
+		// If delete confirmation is showing, handle y/n keys
+		if m.showDeleteConfirm {
+			switch keyMsg.String() {
+			case "y", "Y":
+				// Confirm deletion
+				if m.projectToDelete != nil {
+					m.showDeleteConfirm = false
+					projectID := m.projectToDelete.ID
+					m.projectToDelete = nil
+					return m, m.deleteProject(projectID)
+				}
+				m.showDeleteConfirm = false
+				m.projectToDelete = nil
+				return m, nil
+			case "n", "N", "esc", "q":
+				// Cancel deletion
+				m.showDeleteConfirm = false
+				m.projectToDelete = nil
+				return m, nil
+			}
+			// Ignore other keys when confirmation is showing
+			return m, nil
+		}
+		
 		// If project modal is showing, let it handle keys first (except for messages it generates)
 		if m.showProjectModal && m.projectModal != nil {
 			var cmd tea.Cmd
@@ -345,6 +371,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewMode = LoadingView
 		return m, m.loadProjects
 
+	case deleteProjectMsg:
+		// User wants to delete a project - show confirmation first
+		if m.kanbanBoard != nil {
+			project := m.kanbanBoard.GetSelectedProject()
+			if project != nil && project.ID == msg.projectID {
+				m.projectToDelete = project
+				m.showDeleteConfirm = true
+			}
+		}
+		return m, nil
+
+	case projectDeletedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Reload projects after deletion
+		m.loading = true
+		m.viewMode = LoadingView
+		return m, m.loadProjects
+
 	case openProjectModalMsg:
 		// Open the project creation modal
 		m.projectModal = NewProjectModal()
@@ -388,6 +436,48 @@ func (m Model) View() string {
 	switch m.viewMode {
 	case KanbanBoardView:
 		board := m.kanbanBoardView()
+
+		// Overlay delete confirmation if showing
+		if m.showDeleteConfirm && m.projectToDelete != nil {
+			confirmStyle := lipgloss.NewStyle().
+				Width(50).
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("196")).
+				Padding(1, 2).
+				Align(lipgloss.Center)
+
+			titleStyle := lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("196")).
+				MarginBottom(1)
+
+			helpStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("241")).
+				MarginTop(1)
+
+			title := titleStyle.Render("⚠️  Delete Project?")
+			message := fmt.Sprintf("Are you sure you want to delete:\n\n%s", m.projectToDelete.Name)
+			help := helpStyle.Render("y = yes • n = no")
+
+			content := lipgloss.JoinVertical(
+				lipgloss.Center,
+				title,
+				"",
+				message,
+				"",
+				help,
+			)
+
+			confirmView := confirmStyle.Render(content)
+
+			return lipgloss.Place(
+				m.width,
+				m.height,
+				lipgloss.Center,
+				lipgloss.Center,
+				confirmView,
+			)
+		}
 
 		// Overlay project modal if showing
 		if m.showProjectModal && m.projectModal != nil {
@@ -563,6 +653,14 @@ type projectUpdatedMsg struct {
 	err     error
 }
 
+type projectDeletedMsg struct {
+	err error
+}
+
+type deleteProjectMsg struct {
+	projectID int
+}
+
 type openProjectModalMsg struct{}
 
 type openEditProjectModalMsg struct {
@@ -630,5 +728,12 @@ func (m Model) updateProject(id int, name, description, path, file, language str
 	return func() tea.Msg {
 		project, err := m.apiClient.UpdateProject(id, name, description, path, file, language, priority, status)
 		return projectUpdatedMsg{project: project, err: err}
+	}
+}
+
+func (m Model) deleteProject(id int) tea.Cmd {
+	return func() tea.Msg {
+		err := m.apiClient.DeleteProject(id)
+		return projectDeletedMsg{err: err}
 	}
 }

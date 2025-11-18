@@ -311,6 +311,29 @@ func (c *Client) DeleteTodo(id int) error {
 	return nil
 }
 
+// DeleteProject deletes a project
+func (c *Client) DeleteProject(id int) error {
+	url := fmt.Sprintf("%s/projects/%d", c.BaseURL, id)
+
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to delete project: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
 // CreateProject creates a new project
 func (c *Client) CreateProject(name, description, path, file, language string, priority int, status string) (*Project, error) {
 	url := fmt.Sprintf("%s/projects", c.BaseURL)
