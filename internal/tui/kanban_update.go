@@ -14,6 +14,13 @@ func (b KanbanBoard) Update(msg tea.Msg) (KanbanBoard, tea.Cmd) {
 			return b, func() tea.Msg {
 				return openProjectModalMsg{}
 			}
+		case "e":
+			// Edit selected project - this will be handled by the parent Model
+			if project := b.GetSelectedProject(); project != nil {
+				return b, func() tea.Msg {
+					return openEditProjectModalMsg{project: project}
+				}
+			}
 		case "p":
 			// Progress: move project to next status
 			if project := b.GetSelectedProject(); project != nil {

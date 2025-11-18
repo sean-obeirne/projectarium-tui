@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/sean-obeirne/projectarium-tui/internal/api"
 )
 
 // ProjectModal represents the modal for creating a new project
@@ -18,6 +19,8 @@ type ProjectModal struct {
 	statusOptions  []string
 	selectedStatus int // Index of selected status
 	err            string
+	isEditMode     bool
+	projectID      int
 }
 
 const (
@@ -83,7 +86,34 @@ func NewProjectModal() *ProjectModal {
 		focusedIndex:   0,
 		statusOptions:  []string{"ready", "in_progress", "finished"},
 		selectedStatus: 0,
+		isEditMode:     false,
+		projectID:      0,
 	}
+}
+
+// NewProjectModalForEdit creates a modal pre-populated with existing project data
+func NewProjectModalForEdit(project *api.Project) *ProjectModal {
+	modal := NewProjectModal()
+	modal.isEditMode = true
+	modal.projectID = project.ID
+	
+	// Populate fields with existing values
+	modal.inputs[nameField].SetValue(project.Name)
+	modal.inputs[descriptionField].SetValue(project.Description)
+	modal.inputs[pathField].SetValue(project.Path)
+	modal.inputs[fileField].SetValue(project.File)
+	modal.inputs[languageField].SetValue(project.Language)
+	modal.inputs[priorityField].SetValue(fmt.Sprintf("%d", project.Priority))
+	
+	// Set selected status based on project status
+	for i, status := range modal.statusOptions {
+		if status == project.Status {
+			modal.selectedStatus = i
+			break
+		}
+	}
+	
+	return modal
 }
 
 // SetSize sets the modal dimensions
@@ -187,6 +217,19 @@ func (m *ProjectModal) submitProject() tea.Cmd {
 		return nil
 	}
 
+	if m.isEditMode {
+		return updateProjectCmd(
+			m.projectID,
+			name,
+			m.inputs[descriptionField].Value(),
+			m.inputs[pathField].Value(),
+			m.inputs[fileField].Value(),
+			m.inputs[languageField].Value(),
+			priority,
+			m.statusOptions[m.selectedStatus],
+		)
+	}
+
 	return createProjectCmd(
 		name,
 		m.inputs[descriptionField].Value(),
@@ -234,7 +277,12 @@ func (m *ProjectModal) View() string {
 		Bold(true)
 
 	// Title
-	title := titleStyle.Render("✨ Create New Project")
+	var title string
+	if m.isEditMode {
+		title = titleStyle.Render("✏️  Edit Project")
+	} else {
+		title = titleStyle.Render("✨ Create New Project")
+	}
 
 	// Build form fields
 	var formFields []string
@@ -334,12 +382,38 @@ type createProjectMsg struct {
 	status      string
 }
 
+type updateProjectMsg struct {
+	id          int
+	name        string
+	description string
+	path        string
+	file        string
+	language    string
+	priority    int
+	status      string
+}
+
 type cancelProjectCreationMsg struct{}
 
 // Command functions
 func createProjectCmd(name, description, path, file, language string, priority int, status string) tea.Cmd {
 	return func() tea.Msg {
 		return createProjectMsg{
+			name:        name,
+			description: description,
+			path:        path,
+			file:        file,
+			language:    language,
+			priority:    priority,
+			status:      status,
+		}
+	}
+}
+
+func updateProjectCmd(id int, name, description, path, file, language string, priority int, status string) tea.Cmd {
+	return func() tea.Msg {
+		return updateProjectMsg{
+			id:          id,
 			name:        name,
 			description: description,
 			path:        path,

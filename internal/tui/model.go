@@ -309,6 +309,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// User wants to create a new project
 		return m, m.createProject(msg.name, msg.description, msg.path, msg.file, msg.language, msg.priority, msg.status)
 
+	case updateProjectMsg:
+		// User wants to update an existing project
+		return m, m.updateProject(msg.id, msg.name, msg.description, msg.path, msg.file, msg.language, msg.priority, msg.status)
+
 	case cancelProjectCreationMsg:
 		// User cancelled project creation
 		m.showProjectModal = false
@@ -328,9 +332,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewMode = LoadingView
 		return m, m.loadProjects
 
+	case projectUpdatedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.viewMode = ErrorView
+			return m, nil
+		}
+		// Close modal and reload projects
+		m.showProjectModal = false
+		m.projectModal = nil
+		m.loading = true
+		m.viewMode = LoadingView
+		return m, m.loadProjects
+
 	case openProjectModalMsg:
 		// Open the project creation modal
 		m.projectModal = NewProjectModal()
+		m.projectModal.SetSize(m.width, m.height)
+		m.showProjectModal = true
+		return m, nil
+
+	case openEditProjectModalMsg:
+		// Open the project edit modal
+		m.projectModal = NewProjectModalForEdit(msg.project)
 		m.projectModal.SetSize(m.width, m.height)
 		m.showProjectModal = true
 		return m, nil
@@ -534,7 +558,16 @@ type projectCreatedMsg struct {
 	err     error
 }
 
+type projectUpdatedMsg struct {
+	project *api.Project
+	err     error
+}
+
 type openProjectModalMsg struct{}
+
+type openEditProjectModalMsg struct {
+	project *api.Project
+}
 
 // Commands
 
@@ -590,5 +623,12 @@ func (m Model) createProject(name, description, path, file, language string, pri
 	return func() tea.Msg {
 		project, err := m.apiClient.CreateProject(name, description, path, file, language, priority, status)
 		return projectCreatedMsg{project: project, err: err}
+	}
+}
+
+func (m Model) updateProject(id int, name, description, path, file, language string, priority int, status string) tea.Cmd {
+	return func() tea.Msg {
+		project, err := m.apiClient.UpdateProject(id, name, description, path, file, language, priority, status)
+		return projectUpdatedMsg{project: project, err: err}
 	}
 }
